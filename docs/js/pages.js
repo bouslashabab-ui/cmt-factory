@@ -199,7 +199,7 @@ P.deliveries = async () => {
   const render = async () => {
     const rows = await GET('/deliveries'); root.innerHTML = '';
     root.append(pageHead('تسليم بضاعة للعميل', canW() ? btn('➕ تسليم جديد', newForm, 'pri') : null),
-      table([{ t: 'رقم التسليم', k: 'number' }, { t: 'التاريخ', f: r => dt(r.date) }, { t: 'العميل', k: 'client_name' }, { t: 'السائق', k: 'driver' }, { t: 'إجمالي القطع', k: 'qty' }, { t: 'الفوترة', f: r => +r.billed_lines >= +r.lines && +r.lines > 0 ? tag('مفوتر', 1) : tag('غير مفوتر') }], rows, { onrow: (r) => view(r.id), empty: 'لا توجد تسليمات' }));
+      table([{ t: 'رقم التسليم', k: 'number' }, { t: 'التاريخ', f: r => dt(r.date) }, { t: 'العميل', k: 'client_name' }, { t: 'السائق', k: 'driver' }, { t: 'إجمالي القطع', k: 'qty' }, { t: 'الفوترة', f: r => +r.billed_lines >= +r.line_count && +r.line_count > 0 ? tag('مفوتر', 1) : tag('غير مفوتر') }], rows, { onrow: (r) => view(r.id), empty: 'لا توجد تسليمات' }));
   };
   const view = async (id) => {
     const r = await GET('/deliveries/' + id);
