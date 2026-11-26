@@ -1,6 +1,7 @@
 'use strict';
 const http = require('http');
 const C = require('./core');
+const WB = require('./wb');
 const { bad, money, isDate, HttpError } = C;
 const Q = async (sql, p) => (await C.db().query(sql, p))[0];
 const int = (x, name) => { const n = Number(x); if (!Number.isInteger(n) || n < 0) throw bad('القيمة غير صحيحة: ' + name); return n; };
@@ -12,7 +13,7 @@ const SIMPLE = {
   clients: { cols: ['code', 'name', 'phone', 'address', 'notes', 'active'], used: ['receipts', 'cuts', 'deliveries', 'invoices', 'payments', 'models'], order: 'name' },
   models: { cols: ['code', 'name', 'client_id', 'description', 'price', 'active'], used: ['cuts'], order: 'code' },
   stages: { cols: ['name', 'seq', 'active'], used: ['prod_logs'], order: 'seq,id' },
-  payments: { cols: ['client_id', 'date', 'amount', 'method', 'notes'], used: [], order: 'date DESC,id DESC' }
+  payments: { cols: ['client_id', 'date', 'amount', 'method', 'notes', 'doc_no'], used: [], order: 'date DESC,id DESC' }
 };
 const USEDCOL = { receipts: 'client_id', cuts: 'client_id', deliveries: 'client_id', invoices: 'client_id', payments: 'client_id', models: 'client_id', prod_logs: 'stage_id' };
 const SIMPLE_USEDCOL = { models: { cuts: 'model_id' } };
@@ -453,6 +454,7 @@ async function route(req, url, body) {
     if (m === 'DELETE' && id) { if (id === u.id) throw bad('لا يمكنك حذف حسابك'); await C.db().query('DELETE FROM users WHERE id=?', [id]); await C.audit(u, 'delete', 'user', id); return { ok: true }; }
   }
   if (head === 'audit') { needAdmin(u); return Q('SELECT * FROM audit_log ORDER BY id DESC LIMIT 500'); }
+  { const w = await WB.wbApi(head, req, u, id, body, q, parts); if (w !== undefined) return w; }
   if (SIMPLE[head]) return simple(req, u, head, id, body, q);
   if (head === 'receipts') return receiptsApi(req, u, id, body);
   if (head === 'rolls') return rollsApi(q);
@@ -492,4 +494,4 @@ const server = http.createServer(async (req, res) => {
   });
 });
 server.listen(process.env.PORT || 8080, () => console.log('listening'));
-C.initDb().then((n) => { ready = true; console.log('db ready', n); }).catch((e) => { startErr = e; console.error('db init failed', e.message); });
+C.initDb().then(async (n) => { await WB.migrate(C.db()); ready = true; console.log('db ready', n); }).catch((e) => { startErr = e; console.error('db init failed', e.message); });
