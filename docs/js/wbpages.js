@@ -120,7 +120,8 @@ P.acctstmt = async () => {
       h('div', { class: 'kpis' }, kpi('إجمالي المدفوعات', fmt(r.paid)), kpi('إجمالي المستحق', fmt(r.due)), kpi('الرصيد المتبقي', fmt(r.balance))),
       h('h4', null, 'سجل دفعات وسدادات العميل'), table([{ t: 'التاريخ', f: x => dt(x.date) }, { t: 'يوم السداد', f: x => weekday(x.date) }, { t: 'رقم الإذن', k: 'doc_no' }, { t: 'المبلغ المسدد (الدفعة)', k: 'amount', num: 1 }, { t: 'إجمالي المدفوعات التراكمي', k: 'cum', num: 1 }, { t: 'الرصيد المتبقي بعد الدفعة', k: 'after', num: 1 }], r.payments, { empty: 'لا توجد دفعات' }),
       h('h4', null, 'أوامر القص'), table([{ t: 'كود القصة', k: 'code' }, { t: 'الموديل', k: 'model_name' }, { t: 'اللون', k: 'color' }, { t: 'القطع', f: x => fmt(x.total, 0) }, { t: 'تكلفة القطعة', k: 'unit_cost', num: 1 }, { t: 'إجمالي التكلفة', k: 'cost_total', num: 1 }], r.orders, { empty: 'لا توجد أوامر', foot: [null, null, 'الإجمالي', fmt(r.pieces, 0), null, fmt(r.due)] }));
-    body.append(btn('🖨 طباعة', () => printEl('كشف حساب العميل', doc)), doc);
+    const wa = () => { const t = ['كشف حساب: ' + r.client.name, 'إجمالي القطع: ' + fmt(r.pieces, 0), 'إجمالي المستحق: ' + fmt(r.due) + ' جنيه', 'إجمالي المدفوع: ' + fmt(r.paid) + ' جنيه', 'الرصيد المتبقي: ' + fmt(r.balance) + ' جنيه', ...r.payments.map(x => dt(x.date) + ' دفعة ' + fmt(x.amount) + ' (الرصيد ' + fmt(x.after) + ')')].join('\n'); navigator.clipboard.writeText(t).then(() => toast('تم نسخ الكشف، الصقه في واتساب')); };
+    body.append(btn('🖨 طباعة', () => printEl('كشف حساب العميل', doc)), ' ', btn('📋 نسخ للواتساب', wa), doc);
   };
   const bar = filterBar([{ k: 'client_id', t: 'اسم العميل (اختر من القائمة)', type: 'ref', ref: cOpts }], run, MZ.stmtClient ? { client_id: MZ.stmtClient } : {});
   root.append(pageHead('كشف حساب العميل'), bar, body); if (MZ.stmtClient) { await run({ client_id: MZ.stmtClient }); MZ.stmtClient = null; } return root;
