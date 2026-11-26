@@ -139,7 +139,7 @@ async function receiptsApi(req, u, id, body) {
       if (!h) throw new HttpError(404, 'غير موجود');
       h.rolls = await Q('SELECT * FROM rolls WHERE receipt_id=? ORDER BY id', [id]); return h;
     }
-    return Q('SELECT r.*, c.name client_name, COUNT(l.id) roll_count, COALESCE(SUM(l.length_m),0) length_m, COALESCE(SUM(l.weight_kg),0) weight_kg, COALESCE(SUM(l.used_m),0) used_m FROM receipts r JOIN clients c ON c.id=r.client_id LEFT JOIN rolls l ON l.receipt_id=r.id GROUP BY r.id ORDER BY r.date DESC, r.id DESC LIMIT 500');
+    return Q('SELECT r.*, c.name client_name, COUNT(l.id) roll_count, COALESCE(SUM(l.length_m),0) length_m, COALESCE(SUM(l.weight_kg),0) weight_kg, COALESCE(SUM(l.used_m),0) used_m FROM receipts r JOIN clients c ON c.id=r.client_id LEFT JOIN rolls l ON l.receipt_id=r.id GROUP BY r.id, c.name ORDER BY r.date DESC, r.id DESC LIMIT 500');
   }
   needWrite(u);
   if (m === 'POST') {
@@ -290,7 +290,7 @@ async function deliveriesApi(req, u, id, body) {
       const h = (await Q('SELECT d.*, c.name client_name FROM deliveries d JOIN clients c ON c.id=d.client_id WHERE d.id=?', [id]))[0]; if (!h) throw new HttpError(404, 'غير موجود');
       h.lines = await Q('SELECT l.*, t.number cut_number, md.code model_code, md.name model_name, md.price model_price FROM delivery_lines l JOIN cuts t ON t.id=l.cut_id JOIN models md ON md.id=t.model_id WHERE l.delivery_id=? ORDER BY l.id', [id]); return h;
     }
-    return Q('SELECT d.*, c.name client_name, COALESCE(SUM(l.qty),0) qty, SUM(CASE WHEN l.invoice_id IS NULL THEN 0 ELSE 1 END) billed_lines, COUNT(l.id) lines FROM deliveries d JOIN clients c ON c.id=d.client_id LEFT JOIN delivery_lines l ON l.delivery_id=d.id GROUP BY d.id ORDER BY d.date DESC, d.id DESC LIMIT 500');
+    return Q('SELECT d.*, c.name client_name, COALESCE(SUM(l.qty),0) qty, SUM(CASE WHEN l.invoice_id IS NULL THEN 0 ELSE 1 END) billed_lines, COUNT(l.id) line_count FROM deliveries d JOIN clients c ON c.id=d.client_id LEFT JOIN delivery_lines l ON l.delivery_id=d.id GROUP BY d.id, c.name ORDER BY d.date DESC, d.id DESC LIMIT 500');
   }
   needWrite(u);
   if (m === 'POST') {
