@@ -19,7 +19,7 @@ function h(tag, props, ...kids) {
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n, d = 2) => { const x = Number(n); return isFinite(x) ? x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : ''; };
 const fq = (n) => { const x = Number(n); return isFinite(x) ? (Math.round(x * 10000) / 10000).toLocaleString('en-US', { maximumFractionDigits: 4 }) : ''; };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
 const monthStart = () => today().slice(0, 8) + '01';
 const yearStart = () => today().slice(0, 4) + '-01-01';
 
