@@ -21,7 +21,10 @@ const SCHEMA = [
 `CREATE TABLE IF NOT EXISTS employees(id INT AUTO_INCREMENT PRIMARY KEY, code VARCHAR(30) NOT NULL UNIQUE, name VARCHAR(120) NOT NULL, job VARCHAR(80), salary DECIMAL(12,2) NOT NULL DEFAULT 0, active TINYINT NOT NULL DEFAULT 1)`,
 `CREATE TABLE IF NOT EXISTS attendance(emp_id INT NOT NULL, date DATE NOT NULL, status VARCHAR(12) NOT NULL, PRIMARY KEY(emp_id,date))`,
 `CREATE TABLE IF NOT EXISTS payroll_inputs(emp_id INT NOT NULL, ym CHAR(7) NOT NULL, ot_hours DECIMAL(8,2) NOT NULL DEFAULT 0, fridays INT NOT NULL DEFAULT 0, advances DECIMAL(12,2) NOT NULL DEFAULT 0, deduction DECIMAL(12,2) NOT NULL DEFAULT 0, PRIMARY KEY(emp_id,ym))`,
-'ALTER TABLE payments ADD COLUMN doc_no VARCHAR(40)'
+'ALTER TABLE payments ADD COLUMN doc_no VARCHAR(40)',
+'ALTER TABLE cut_orders ADD COLUMN stage VARCHAR(30)',
+'ALTER TABLE cut_orders ADD COLUMN stage_at DATETIME',
+`CREATE TABLE IF NOT EXISTS expenses(id INT AUTO_INCREMENT PRIMARY KEY, date DATE NOT NULL, cut_code VARCHAR(60), category VARCHAR(60), amount DECIMAL(14,2) NOT NULL DEFAULT 0, notes VARCHAR(255), created_by INT, INDEX(cut_code))`
 ];
 async function migrate(pool) {
   for (const s of SCHEMA) { try { await pool.query(s); } catch (e) { if (!/Duplicate column/i.test(e.message)) throw e; } }
@@ -241,12 +244,14 @@ async function payrollApi(req, u, body, q) {
     const daily = nn(e.salary) / dim, hour = daily / hpd;
     const fri = r2(daily * (i.fridays || 0) * frx), ot = r2(nn(i.ot_hours) * hour * otx);
     const earned = r2(present * daily), gross = r2(earned + ot + fri);
-    const ded = r2(nn(i.advances) + nn(i.deduction)), net = r2(gross - ded);
-    return { emp_id: e.id, code: e.code, name: e.name, job: e.job, salary: nn(e.salary), present, absent, daily: r2(daily), hour: r2(hour), ot_hours: nn(i.ot_hours), fridays: +i.fridays || 0, ot_value: ot, friday_value: fri, earned, gross, advances: nn(i.advances), deduction: nn(i.deduction), absence_value: r2(daily * absent), total_deductions: ded, net };
+    const dbl = String(st.pay_absence_double == null ? '1' : st.pay_absence_double) !== '0';
+    const ded = r2(nn(i.advances) + nn(i.deduction) + (dbl ? daily * absent : 0)), net = r2(gross - ded);
+    return { emp_id: e.id, code: e.code, name: e.name, job: e.job, salary: nn(e.salary), present, absent, daily: r2(daily), hour: r2(hour), ot_hours: nn(i.ot_hours), fridays: +i.fridays || 0, ot_value: ot, friday_value: fri, earned, gross, advances: nn(i.advances), deduction: nn(i.deduction), absence_value: r2(daily * absent), total_deductions: ded, net, absence_double: dbl };
   }) };
 }
 
 async function wbApi(head, req, u, id, body, q, parts) {
+  { const r2x = await require('./wb2').api(head, req, u, id, body, q, parts); if (r2x !== undefined) return r2x; }
   if (head === 'store') return storeApi(req, u, id, body, q, parts[2] === 'transfer' ? 'transfer' : (parts[1] === 'transfer' ? 'transfer' : null));
   if (head === 'store-transfer') return storeApi(req, u, id, body, q, 'transfer');
   if (head === 'orders') return ordApi(req, u, id, body, q);
@@ -258,4 +263,4 @@ async function wbApi(head, req, u, id, body, q, parts) {
   if (head === 'acct-statement') return statement(q);
   return undefined;
 }
-module.exports = { migrate, wbApi };
+module.exports = { migrate, wbApi, ordList, storeList, accounts, lastDay, ymOk };
