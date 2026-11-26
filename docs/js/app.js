@@ -15,7 +15,7 @@ const TITLES = {}; MENUS.forEach(m => m[1].forEach(i => { TITLES[i[2]] = i[1]; }
 
 async function openPage(key) {
   const f = MZ.pages[key]; if (!f) return toast('الشاشة غير متاحة', 'err');
-  openWin(key, TITLES[key] || key, async () => { const r = f(); return await r; });
+  openWin(key, TITLES[key] || key, async () => { const r = f(); return await r; }, { refresh: true });
 }
 function logout() { SND.play('logout'); sessionStorage.removeItem('cmt_tok'); setTimeout(() => location.reload(), 650); }
 function muteBtn() { const b = h('button', { class: 'mute', title: 'كتم / تشغيل الأصوات', onclick: () => { const m = SND.toggle(); b.textContent = m ? '🔇' : '🔊'; } }, SND.muted ? '🔇' : '🔊'); return b; }
