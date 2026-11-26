@@ -55,7 +55,7 @@ P.stages_board = async () => {
     h('div', { class: 'panel' }, h('div', { class: 'pb' }, 'كل قصة تظهر مرة واحدة. حرّكها بين المراحل بالأزرار. القصة التي يكتمل تسليمها تنتقل تلقائياً إلى "تم التسليم"، وتُلوَّن بالأحمر لو تأخرت أكثر من 10 أيام في مرحلة.')),
     h('div', { class: 'kanban' }, d.stages.map(col))); return root;
 };
-TITLES.stages_board = 'لوحة مراحل الإنتاج'; MZ.pages.stages_board = P.stages_board;
+MZ.pages.stages_board = P.stages_board;
 
 /* ---------- المصروفات والربحية ---------- */
 const EXP_CATS = ['خيوط', 'أزرار وإكسسوار', 'طباعة / تطريز', 'نقل وشحن', 'صيانة', 'كهرباء ومياه', 'إيجار', 'أخرى'];
