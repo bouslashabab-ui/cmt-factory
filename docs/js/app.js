@@ -6,6 +6,7 @@ const MENUS = [
   ['الملفات', [['👥', 'العملاء (أصحاب القماش)', 'clients'], ['👕', 'الموديلات وسعر التصنيع', 'models'], ['👷', 'الموظفون', 'employees']]],
   ['القماش والقص', [['📥', 'مخزن استلام القماش', 'store'], ['✂', 'أمر القص التفصيلي', 'orders'], ['🖨', 'تتبع الخارج والراجع (طباعة)', 'outs']]],
   ['الحسابات', [['💰', 'سجل مقبوضات العملاء', 'payments'], ['📒', 'حسابات العملاء المجمعة', 'accounts'], ['📑', 'كشف حساب العميل', 'acctstmt']]],
+  ['المساعد والتحليل', [['🤖', 'المساعد الذكي', 'assistant'], ['🏭', 'لوحة مراحل الإنتاج', 'stages_board'], ['💸', 'المصروفات', 'expenses'], ['📈', 'ربحية أوامر القص', 'profit'], ['⏳', 'أعمار الديون', 'aging']]],
   ['العمال', [['🗓', 'حضور وانصراف العمال', 'attendance'], ['💵', 'المرتبات', 'payroll']]],
   ['النظام', [['⚙', 'الإعدادات', 'settings', 'admin'], ['👤', 'المستخدمون', 'users', 'admin'], ['🕵', 'سجل المراجعة', 'audit', 'admin']]]
 ];
@@ -35,13 +36,13 @@ function shell() {
     h('div', { class: 'me' }, h('div', { class: 'av' }, nm.trim().charAt(0)), h('div', null, nm, h('small', null, ROLE_AR[MZ.user.role] || '')), muteBtn(), h('button', { onclick: logout }, 'خروج')));
   const main = h('div', { class: 'main' },
     h('div', { class: 'topbar' }, h('button', { class: 'burger', onclick: () => side.classList.toggle('open') }, '☰'), h('div', { class: 'tabs', id: 'tabs' }),
-      h('div', { class: 'today' }, new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
+      h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today' }, new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
     h('div', { id: 'desk' }));
   app.append(side, main);
   const sync = () => document.querySelectorAll('.nv').forEach(n => n.classList.toggle('on', n.getAttribute('data-k') === MZ.active));
   new MutationObserver(sync).observe($('#tabs'), { subtree: true, childList: true, attributes: true });
   openWin('home', 'الرئيسية', () => MZ.pages.home());
-  sync();
+  sync(); setTimeout(() => assistCount(), 1500);
 }
 
 async function boot() {
