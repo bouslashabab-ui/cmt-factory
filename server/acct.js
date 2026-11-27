@@ -7,7 +7,8 @@ const r2 = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 const SCH = [
 `CREATE TABLE IF NOT EXISTS gl_accounts(id INT AUTO_INCREMENT PRIMARY KEY, code VARCHAR(20) NOT NULL UNIQUE, name VARCHAR(120) NOT NULL, type VARCHAR(12) NOT NULL, active TINYINT NOT NULL DEFAULT 1)`,
 `CREATE TABLE IF NOT EXISTS gl_entries(id INT AUTO_INCREMENT PRIMARY KEY, no INT NOT NULL, date DATE NOT NULL, memo VARCHAR(255), kind VARCHAR(12) NOT NULL DEFAULT 'normal', source VARCHAR(20), source_id INT, reversed_of INT NULL, created_by INT, INDEX(date), INDEX(source,source_id))`,
-`CREATE TABLE IF NOT EXISTS gl_lines(id INT AUTO_INCREMENT PRIMARY KEY, entry_id INT NOT NULL, account_id INT NOT NULL, debit DECIMAL(16,2) NOT NULL DEFAULT 0, credit DECIMAL(16,2) NOT NULL DEFAULT 0, INDEX(entry_id), INDEX(account_id))`];
+`CREATE TABLE IF NOT EXISTS gl_lines(id INT AUTO_INCREMENT PRIMARY KEY, entry_id INT NOT NULL, account_id INT NOT NULL, debit DECIMAL(16,2) NOT NULL DEFAULT 0, credit DECIMAL(16,2) NOT NULL DEFAULT 0, INDEX(entry_id), INDEX(account_id))`,
+`CREATE TABLE IF NOT EXISTS suppliers(id INT AUTO_INCREMENT PRIMARY KEY, code VARCHAR(30) NOT NULL UNIQUE, name VARCHAR(160) NOT NULL, phone VARCHAR(40), notes VARCHAR(255), active TINYINT NOT NULL DEFAULT 1)`];
 const CHART = [['1100', 'الصندوق (نقدية)', 'asset'], ['1110', 'البنك', 'asset'], ['1200', 'العملاء (مدينون)', 'asset'], ['1300', 'مخزون مستلزمات', 'asset'], ['1500', 'الأصول الثابتة (ماكينات)', 'asset'], ['1590', 'مجمع الإهلاك', 'asset'],
 ['2100', 'الموردون (دائنون)', 'liability'], ['2200', 'مصروفات مستحقة', 'liability'], ['2300', 'رواتب مستحقة', 'liability'], ['2400', 'سلف وأمانات عملاء', 'liability'],
 ['3100', 'رأس المال', 'equity'], ['3200', 'جاري المالك (مسحوبات)', 'equity'], ['3300', 'أرباح مرحّلة', 'equity'],
@@ -17,21 +18,22 @@ const TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 let ready = false, ready2 = false;
 async function ensure() {
   if (!ready) { for (const s of SCH) await C.db().query(s); ready = true; }
-  if (!ready2) { try { await C.db().query('ALTER TABLE gl_lines ADD COLUMN client_id INT NULL'); } catch (e) { /* exists */ }
+  if (!ready2) { for (const t of ['ALTER TABLE gl_lines ADD COLUMN supplier_id INT NULL', 'ALTER TABLE inv_moves ADD COLUMN supplier_id INT NULL']) { try { await C.db().query(t); } catch (e) { /* exists */ } }
+    try { await C.db().query('ALTER TABLE gl_lines ADD COLUMN client_id INT NULL'); } catch (e) { /* exists */ }
     try { await C.db().query("UPDATE gl_lines l JOIN gl_entries e ON e.id=l.entry_id JOIN cut_orders o ON e.source='order' AND o.id=e.source_id JOIN gl_accounts a ON a.id=l.account_id AND a.code='1200' SET l.client_id=o.client_id WHERE l.client_id IS NULL"); await C.db().query("UPDATE gl_lines l JOIN gl_entries e ON e.id=l.entry_id JOIN payments p ON e.source='payment' AND p.id=e.source_id JOIN gl_accounts a ON a.id=l.account_id AND a.code='1200' SET l.client_id=p.client_id WHERE l.client_id IS NULL"); } catch (e) { console.error('subledger backfill', e.message); }
     ready2 = true; }
   const [[n]] = await C.db().query('SELECT COUNT(*) n FROM gl_accounts'); if (!n.n) for (const a of CHART) await C.db().query('INSERT INTO gl_accounts(code,name,type) VALUES(?,?,?)', a);
 }
 const acc = async (code) => (await Q('SELECT id FROM gl_accounts WHERE code=?', [code]))[0].id;
 async function post(conn, date, memo, kind, lines, o = {}) {
-  const ls = lines.map(l => ({ a: +l.account_id, d: r2(l.debit), c: r2(l.credit), cl: l.client_id ? +l.client_id : null })).filter(l => l.d || l.c);
+  const ls = lines.map(l => ({ a: +l.account_id, d: r2(l.debit), c: r2(l.credit), cl: l.client_id ? +l.client_id : null, sp: l.supplier_id ? +l.supplier_id : null })).filter(l => l.d || l.c);
   if (ls.length < 2) throw bad('القيد يحتاج سطرين على الأقل');
   if (ls.some(l => (l.d && l.c) || l.d < 0 || l.c < 0)) throw bad('السطر إما مدين أو دائن بقيمة موجبة');
   const D = r2(ls.reduce((s, l) => s + l.d, 0)), K = r2(ls.reduce((s, l) => s + l.c, 0));
   if (D !== K) throw bad('القيد غير متزن: المدين ' + D + ' والدائن ' + K);
   const [[m]] = await conn.query('SELECT COALESCE(MAX(no),0)+1 n FROM gl_entries');
   const [r] = await conn.query('INSERT INTO gl_entries(no,date,memo,kind,source,source_id,reversed_of,created_by) VALUES(?,?,?,?,?,?,?,?)', [m.n, date, String(memo || '').slice(0, 250), kind, o.source || null, o.source_id || null, o.reversed_of || null, o.uid || null]);
-  for (const l of ls) await conn.query('INSERT INTO gl_lines(entry_id,account_id,debit,credit,client_id) VALUES(?,?,?,?,?)', [r.insertId, l.a, l.d, l.c, l.cl]);
+  for (const l of ls) await conn.query('INSERT INTO gl_lines(entry_id,account_id,debit,credit,client_id,supplier_id) VALUES(?,?,?,?,?,?)', [r.insertId, l.a, l.d, l.c, l.cl, l.sp]);
   return { id: r.insertId, no: m.n };
 }
 async function lockGuard(date) { const s = await C.getSettings(); const lb = String(s.lock_before || ''); if (/^\d{4}-\d{2}-\d{2}$/.test(lb) && date < lb) throw new HttpError(423, 'الفترة مقفلة قبل ' + lb); }
@@ -54,7 +56,7 @@ async function autoPost(uid) {
       for (const k of Object.keys(cards)) for (const mv of cards[k]) {
         if (mv.kind === 'trin' || mv.kind === 'trout' || (await has('invmove', mv.id))) continue;
         const v = r2(Math.abs(mv.signed) * (mv.kind === 'in' ? mv.unit_cost : mv.cost)); if (!(v > 0)) continue; const dt = mv.date;
-        if (mv.kind === 'in') await post(conn, dt, 'توريد مخزون ' + (mv.ref || ''), 'normal', [{ account_id: stock, debit: v }, { account_id: ap, credit: v }], { source: 'invmove', source_id: mv.id, uid });
+        if (mv.kind === 'in') await post(conn, dt, 'توريد مخزون ' + (mv.ref || ''), 'normal', [{ account_id: stock, debit: v }, { account_id: ap, credit: v, supplier_id: mv.supplier_id }], { source: 'invmove', source_id: mv.id, uid });
         else if (mv.kind === 'out') await post(conn, dt, 'صرف مخزون ' + (mv.ref || ''), 'normal', [{ account_id: exp, debit: v }, { account_id: stock, credit: v }], { source: 'invmove', source_id: mv.id, uid });
         else if (mv.signed > 0) await post(conn, dt, 'فرق جرد (زيادة)', 'normal', [{ account_id: stock, debit: v }, { account_id: misc, credit: v }], { source: 'invmove', source_id: mv.id, uid });
         else await post(conn, dt, 'فرق جرد (عجز)', 'normal', [{ account_id: misc, debit: v }, { account_id: stock, credit: v }], { source: 'invmove', source_id: mv.id, uid });
@@ -96,6 +98,26 @@ async function api(head, req, u, id, body, q, parts) {
     }
   }
   if (sub === 'autopost' && m === 'POST') { write(); const n = await autoPost(u.id); return { posted: n }; }
+  if (sub === 'suppliers') {
+    if (m === 'GET') return Q('SELECT * FROM suppliers WHERE active=1 ORDER BY name');
+    write(); const nm = String(body.name || '').trim(); if (!nm) throw bad('اسم المورد مطلوب'); const code = String(body.code || '').trim() || ('S' + String(Date.now()).slice(-6));
+    try { await C.db().query('INSERT INTO suppliers(code,name,phone,notes) VALUES(?,?,?,?)', [code.slice(0, 30), nm.slice(0, 160), String(body.phone || '').slice(0, 40), String(body.notes || '').slice(0, 250)]); } catch (e) { throw bad('كود المورد مكرر'); } return { ok: true };
+  }
+  if (sub === 'suppay' && m === 'POST') { // pay a supplier: Dr 2100 (supplier) / Cr cash or bank
+    write(); const amt = r2(body.amount), sid = +body.supplier_id; if (!(amt > 0)) throw bad('المبلغ غير صحيح'); if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date || '')) throw bad('التاريخ غير صحيح');
+    if (!(await Q('SELECT id FROM suppliers WHERE id=?', [sid])).length) throw bad('اختر موردًا'); await lockGuard(body.date);
+    const ap = await acc('2100'), src = await acc(body.method === 'bank' ? '1110' : '1100'); const conn = await C.db().getConnection();
+    try { await post(conn, body.date, 'سداد مورد ' + String(body.notes || ''), 'normal', [{ account_id: ap, debit: amt, supplier_id: sid }, { account_id: src, credit: amt }], { source: 'suppay', uid: u.id }); } finally { conn.release(); }
+    await C.audit(u, 'create', 'supplier_payment', sid, String(amt)); return { ok: true };
+  }
+  if (sub === 'supledger') { // supplier sub-ledger vs control account 2100
+    const to = /^\d{4}-\d{2}-\d{2}$/.test(q.to || '') ? q.to : '9999-12-31';
+    const rows = await Q("SELECT l.supplier_id, COALESCE(SUM(l.debit),0) debit, COALESCE(SUM(l.credit),0) credit FROM gl_lines l JOIN gl_entries e ON e.id=l.entry_id AND e.date<=? JOIN gl_accounts a ON a.id=l.account_id AND a.code='2100' GROUP BY l.supplier_id", [to]);
+    const ss = await Q('SELECT id,code,name FROM suppliers'); const nm = {}; ss.forEach(c => { nm[c.id] = c; });
+    const out = rows.map(r => ({ supplier_id: r.supplier_id, code: r.supplier_id ? (nm[r.supplier_id] || {}).code : '', name: r.supplier_id ? ((nm[r.supplier_id] || {}).name || '#' + r.supplier_id) : 'غير مرتبط بمورد', debit: r2(r.debit), credit: r2(r.credit), balance: r2(r.credit - r.debit) }));
+    const control = r2(rows.reduce((s, r) => s + r.credit - r.debit, 0)), subs = r2(out.filter(r => r.supplier_id).reduce((s, r) => s + r.balance, 0)), un = r2(out.filter(r => !r.supplier_id).reduce((s, r) => s + r.balance, 0));
+    return { rows: out, control, subs, unassigned: un, reconciled: Math.abs(un) < 0.005 };
+  }
   if (sub === 'subledger') { // customer sub-ledger vs control account 1200
     const to = /^\d{4}-\d{2}-\d{2}$/.test(q.to || '') ? q.to : '9999-12-31';
     const rows = await Q("SELECT l.client_id, COALESCE(SUM(l.debit),0) debit, COALESCE(SUM(l.credit),0) credit FROM gl_lines l JOIN gl_entries e ON e.id=l.entry_id AND e.date<=? JOIN gl_accounts a ON a.id=l.account_id AND a.code='1200' GROUP BY l.client_id", [to]);
