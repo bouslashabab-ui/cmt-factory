@@ -172,7 +172,7 @@ window.globalSearch = async function (q) {
 
 /* ---------- الإقفال اليومي ---------- */
 P.daily_close = async () => {
-  const dt = (MZ.dcDate || today()); const d = await GET('/daily-close?date=' + dt) || {}; ['attendance', 'production'].forEach(k => { if (!Array.isArray(d[k])) d[k] = []; }); ['deliveries', 'payments', 'expenses'].forEach(k => { if (!d[k]) d[k] = {}; ['n', 'qty', 'total'].forEach(f2 => { if (d[k][f2] === undefined) d[k][f2] = 0; }); }); if (!d.date) d.date = dt; const f = (n) => Number(n || 0).toLocaleString('ar-EG');
+  const dt = (MZ.dcDate || today()); const d = await GET('/daily-close?date=' + dt) || {}; ['attendance', 'production'].forEach(k => { if (!Array.isArray(d[k])) d[k] = []; }); ['deliveries', 'payments', 'expenses'].forEach(k => { if (!d[k]) d[k] = {}; ['n', 'qty', 'total'].forEach(f2 => { if (d[k][f2] === undefined) d[k][f2] = 0; }); }); if (!d.date) d.date = dt; const f = (n) => Number(n || 0).toLocaleString(window.MZ_LOC ? MZ_LOC() : 'ar-EG');
   const inp = h('input', { type: 'date', value: d.date, onchange: () => { MZ.dcDate = inp.value; openPage('daily_close'); } });
   const att = {}; d.attendance.forEach(a => { att[a.status] = a.n; });
   return h('div', null, pageHead('🧾 الإقفال اليومي', inp, btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
