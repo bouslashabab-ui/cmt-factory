@@ -5,11 +5,13 @@
   const bar = (label, v, max, color) => h('div', { class: 'bar-row' }, h('span', { class: 'bl' }, label), h('div', { class: 'bt' }, h('i', { style: { width: (max ? Math.max(2, Math.round(v / max * 100)) : 0) + '%', background: color } })), h('b', null, fmt(v)));
 
   const AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  const EN_M2 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mName = (mi) => ((window.I18N && I18N.lang === 'en') ? EN_M2 : AR)[mi];
   async function monthly() {
     const now = new Date(), ms = [];
-    for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1), e = new Date(d.getFullYear(), d.getMonth() + 1, 0); const f = x => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); ms.push({ l: AR[d.getMonth()], from: f(d), to: f(e) }); }
+    for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1), e = new Date(d.getFullYear(), d.getMonth() + 1, 0); const f = x => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); ms.push({ l: mName(d.getMonth()), from: f(d), to: f(e) }); }
     const rs = await Promise.allSettled(ms.map(m => GET('/gl/statements?from=' + m.from + '&to=' + m.to)));
-    return ms.map((m, i) => { const I = rs[i].status === 'fulfilled' ? rs[i].value.income : null; return { l: m.l, rev: I ? +I.total_revenue || 0 : 0, exp: I ? +I.total_expense || 0 : 0 }; });
+    return ms.map((m, i) => { const I = rs[i].status === 'fulfilled' && rs[i].value ? rs[i].value.income : null; return { l: m.l, rev: I ? +I.total_revenue || 0 : 0, exp: I ? +I.total_expense || 0 : 0 }; });
   }
   function chart(data) {
     const W = 640, H = 220, pl = 10, pb = 28, pt = 12, mx = Math.max(1, ...data.flatMap(d => [d.rev, d.exp])), bw = 26, gap = (W - pl * 2) / data.length, ch = H - pb - pt;
@@ -18,8 +20,8 @@
     const pts = [];
     data.forEach((d, i) => {
       const cx = pl + gap * i + gap / 2, hr = d.rev / mx * ch, he = d.exp / mx * ch;
-      g += '<rect class="svg-bar" style="animation-delay:' + (i * 80) + 'ms" x="' + (cx - bw - 2) + '" y="' + (pt + ch - hr) + '" width="' + bw + '" height="' + Math.max(hr, 1) + '" rx="6" fill="#3547e0"><title>' + d.l + ' إيراد ' + fmt(d.rev) + '</title></rect>';
-      g += '<rect class="svg-bar" style="animation-delay:' + (i * 80 + 40) + 'ms" x="' + (cx + 2) + '" y="' + (pt + ch - he) + '" width="' + bw + '" height="' + Math.max(he, 1) + '" rx="6" fill="#f0457a"><title>' + d.l + ' مصروف ' + fmt(d.exp) + '</title></rect>';
+      g += '<rect class="svg-bar" style="animation-delay:' + (i * 80) + 'ms" x="' + (cx - bw - 2) + '" y="' + (pt + ch - hr) + '" width="' + bw + '" height="' + Math.max(hr, 1) + '" rx="6" fill="#3547e0"><title>' + d.l + ((window.I18N && I18N.lang === 'en') ? ' Revenue ' : ' إيراد ') + fmt(d.rev) + '</title></rect>';
+      g += '<rect class="svg-bar" style="animation-delay:' + (i * 80 + 40) + 'ms" x="' + (cx + 2) + '" y="' + (pt + ch - he) + '" width="' + bw + '" height="' + Math.max(he, 1) + '" rx="6" fill="#f0457a"><title>' + d.l + ((window.I18N && I18N.lang === 'en') ? ' Expense ' : ' مصروف ') + fmt(d.exp) + '</title></rect>';
       g += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" fill="#7a82a6">' + d.l + '</text>';
       pts.push((cx) + ',' + (pt + ch - (d.rev - d.exp > 0 ? (d.rev - d.exp) / mx * ch : 0)));
     });
@@ -44,8 +46,8 @@
     const y = new Date().getFullYear(); const jobs = await Promise.allSettled([GET('/gl/statements?from=' + y + '-01-01&to=' + today()), GET('/inv/stock'), monthly()]);
     try { if (jobs[2].status === 'fulfilled') extra.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'الإيرادات والمصروفات آخر 6 شهور'), chart(jobs[2].value))); } catch (e) {}
     const st = jobs[0].status === 'fulfilled' ? jobs[0].value : null, inv = jobs[1].status === 'fulfilled' ? jobs[1].value : null;
-    if (st) { const I = st.income, mx = Math.max(I.total_revenue, I.total_expense, Math.abs(I.net), 1); extra.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'الموقف المالي منذ بداية ' + y), h('div', { class: 'pb' }, bar('الإيرادات', I.total_revenue, mx, '#3547e0'), bar('المصروفات', I.total_expense, mx, '#f0457a'), bar('صافي الربح', Math.abs(I.net), mx, I.net >= 0 ? '#3547e0' : '#b3261e'), bar('النقدية', Math.abs(st.cash), mx, '#0f1437')))); }
-    if (inv) { try { const cats = {}; inv.rows.forEach(r => { const k = r.category || r.name || '-'; cats[k] = (cats[k] || 0) + (+r.value || 0); }); const cl = ['#3547e0', '#7a5af8', '#0ea5e9', '#14b8a6', '#f0457a', '#64748b']; const parts = Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 6).map((e, i) => ({ l: e[0], v: e[1], c: cl[i] })).filter(p => p.v > 0); if (parts.length) extra.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'توزيع قيمة المخزون'), donut(parts))); } catch (e) {} const low = inv.rows.filter(r => r.low); extra.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'المخزون: القيمة ' + fmt(inv.total_value)), h('div', { class: 'pb' }, low.length ? low.map(r => h('div', { class: 'alert-line' }, '⚠ ' + r.name + ': الرصيد ' + r.qty + ' (الحد ' + r.min_qty + ')')) : (inv.rows.length ? '✔ لا توجد أصناف تحت الحد الأدنى' : 'لا أصناف بعد. أضف من: المخزون ثم الأصناف والمخازن.')))); }
+    if (st) { const I = st.income || {}, rv = +I.total_revenue || 0, ex = +I.total_expense || 0, nt = +I.net || 0, mx = Math.max(rv, ex, Math.abs(nt), Math.abs(+st.cash || 0), 1); extra.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'الموقف المالي منذ بداية ' + y), h('div', { class: 'pb' }, bar('الإيرادات', rv, mx, '#3547e0'), bar('المصروفات', ex, mx, '#f0457a'), bar('صافي الربح', Math.abs(nt), mx, nt >= 0 ? '#3547e0' : '#b3261e'), bar('النقدية', Math.abs(+st.cash || 0), mx, '#0f1437')))); }
+    if (inv) { if (!Array.isArray(inv.rows)) inv.rows = []; try { const cats = {}; inv.rows.forEach(r => { const k = r.category || r.name || '-'; cats[k] = (cats[k] || 0) + (+r.value || 0); }); const cl = ['#3547e0', '#7a5af8', '#0ea5e9', '#14b8a6', '#f0457a', '#64748b']; const parts = Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 6).map((e, i) => ({ l: e[0], v: e[1], c: cl[i] })).filter(p => p.v > 0); if (parts.length) extra.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'توزيع قيمة المخزون'), donut(parts))); } catch (e) {} const low = inv.rows.filter(r => r.low); extra.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'المخزون: القيمة ' + fmt(inv.total_value)), h('div', { class: 'pb' }, low.length ? low.map(r => h('div', { class: 'alert-line' }, '⚠ ' + r.name + ': الرصيد ' + r.qty + ' (الحد ' + r.min_qty + ')')) : (inv.rows.length ? '✔ لا توجد أصناف تحت الحد الأدنى' : 'لا أصناف بعد. أضف من: المخزون ثم الأصناف والمخازن.')))); }
     const qa = [['📥', 'استلام قماش', 'store'], ['✂', 'أمر قص', 'orders'], ['💰', 'مقبوضة', 'payments'], ['📒', 'قيد يومية', 'gl_journal'], ['📦', 'المخزون', 'inv_stock'], ['🧾', 'الإقفال اليومي', 'daily_close']].filter(x => MZ.pages[x[2]]);
     extra.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'اختصارات سريعة'), h('div', { class: 'pb qa' }, qa.map(x => h('button', { class: 'qa-b', onclick: () => openPage(x[2]) }, h('span', null, x[0]), x[1])))));
     root.append(extra); return root;
