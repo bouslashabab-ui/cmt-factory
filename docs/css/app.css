@@ -334,3 +334,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @media(min-width:901px){#app{padding-top:60px}.side{display:none}}
 @media(max-width:900px){.topnav,.tn-panel{display:none}}
 @media print{.topnav,.tn-panel{display:none!important}}
+/* compact clock inside the top bar; plain date in the tab row (mobile only) */
+.topnav .today{flex:none;padding:0;color:#aeb6dd}
+.topnav .today.sclock{background:none;box-shadow:none;border-radius:0;padding:0 6px}
+.topnav .sclock .ck-t{font-size:14px}
+.topnav .sclock .ck-d{font-size:10px}
+.today-plain{display:none;color:var(--mut);font-size:12px;padding:0 4px 10px;white-space:nowrap}
+@media(max-width:900px){.today-plain{display:block}}
