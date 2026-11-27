@@ -381,3 +381,66 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 /* keep all 9 sections visible on narrower laptops: logo-only brand, drop bar clock */
 @media(min-width:901px) and (max-width:1500px){.tn-brand h1{display:none}.topnav{gap:6px;padding:0 10px}}
 @media(min-width:901px) and (max-width:1400px){.topnav .today{display:none}}
+
+/* ================= login screen redesign: "Atelier Dark" ================= */
+#app .land{background:#0b1030;color:#eef1ff;overflow:auto}
+#app .land:before,#app .land:after{content:"";position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0}
+#app .land:before{width:560px;height:560px;top:-160px;left:-120px;background:radial-gradient(circle,rgba(79,95,232,.5),transparent 65%);animation:aur1 14s ease-in-out infinite alternate}
+#app .land:after{width:640px;height:640px;bottom:-220px;right:-160px;background:radial-gradient(circle,rgba(240,69,122,.34),transparent 65%);animation:aur2 18s ease-in-out infinite alternate}
+@keyframes aur1{to{transform:translate(90px,60px) scale(1.15)}}
+@keyframes aur2{to{transform:translate(-70px,-50px) scale(1.1)}}
+#app .land-l,#app .land-r,#app .land-f{position:relative;z-index:1}
+#app .land-l{padding:64px 70px 24px;background:none}
+#app .land-r{background:none;display:flex;align-items:center;justify-content:center;padding:34px}
+#app .land-r:before{background-image:radial-gradient(rgba(154,168,255,.10) 1px,transparent 1px);background-size:20px 20px}
+#app .land-r:after{display:none}
+#app .tagline{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#c8ff5a;backdrop-filter:blur(8px)}
+#app .land h1{color:#fff;text-shadow:0 4px 30px rgba(11,16,48,.6)}
+#app .land h1 em{background:none;padding:0;background-image:linear-gradient(100deg,#c8ff5a,#4fd6c0 60%,#9aa8ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+#app .land .lead{color:#b9c1e8}
+#app .stg{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+#app .stg small{color:#c8ff5a}#app .stg b{color:#fff}
+#app .stg-ar{color:#5f6a9e}
+#app .art svg{filter:drop-shadow(0 14px 34px rgba(0,0,0,.45))}
+#app .lg-card{background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.14);transform:none;color:#eef1ff;transition:transform .18s ease}
+#app .lg-card:after{display:none}
+#app .lg-card h2{color:#fff;font-size:30px}
+#app .lg-card .sub{color:#a7b0dd}
+#app .lg-card label{color:#8f9ac9;font-size:12.5px;font-weight:700}
+#app .fld{position:relative}
+#app .fld .fld-i{position:absolute;top:50%;right:14px;transform:translateY(-50%);font-size:16px;opacity:.85;pointer-events:none}
+#app .lg-card input{background:rgba(255,255,255,.09);border:1.5px solid rgba(255,255,255,.15);color:#fff;border-radius:14px;padding:13px 46px 13px 46px;transition:border-color .18s,box-shadow .18s,background .18s}
+#app .lg-card input::placeholder{color:#6f7aa8}
+#app .lg-card input:focus{outline:none;border-color:#c8ff5a;box-shadow:0 0 0 4px rgba(200,255,90,.16);background:rgba(255,255,255,.13)}
+#app .fld .eye{position:absolute;top:50%;left:10px;transform:translateY(-50%);background:none;border:0;font-size:16px;cursor:pointer;opacity:.8;padding:4px;color:#cdd4f5}
+#app .fld .eye:hover{opacity:1}
+#app .caps-hint{margin:8px 2px 0;font-size:12.5px;color:#ffcf5a;font-weight:700}
+#app .lg-card button.go{margin-top:22px;background:linear-gradient(120deg,#3547e0,#7a5af8);border-radius:14px;font-size:17px;color:#fff;border:0;box-shadow:0 12px 30px rgba(53,71,224,.4);transition:transform .16s,box-shadow .16s,filter .16s}
+#app .lg-card button.go:hover{background:linear-gradient(120deg,#4256f0,#8a6aff);transform:translateY(-2px);box-shadow:0 16px 38px rgba(53,71,224,.55)}
+#app .lg-card button.go:active{transform:translateY(0)}
+#app .lg-card button.go.busy{font-size:0;pointer-events:none}
+#app .lg-card button.go.busy:after{content:"";display:block;width:22px;height:22px;margin:0 auto;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#app .lg-card button.go.done{background:linear-gradient(120deg,#1d9e6c,#2fce8f);box-shadow:0 12px 30px rgba(31,180,110,.4)}
+#app .lg-msg{color:#ff8fa8}#app .lg-msg.info{color:#9fe870}
+#app .lg-card .lg-foot{color:#6f7aa8;margin-top:16px;text-align:center;font-size:12px}
+#app .lg-card.shake{animation:shk .45s ease}
+@keyframes shk{20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+#app .land .login-clock{position:absolute;top:26px;left:26px;z-index:2;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(14px);border-radius:18px;padding:12px 22px 14px;box-shadow:0 16px 40px rgba(0,0,0,.35);min-width:0}
+#app .land .login-clock .ck-t{font-size:26px;color:#c8ff5a}
+#app .land .login-clock .ck-w{color:#fff;font-size:13px}
+#app .land .login-clock .ck-r{color:#aab3e0;font-size:11.5px}
+#app .land .login-clock .ck-bar{background:linear-gradient(90deg,#3547e0,#c8ff5a)}
+#app .land-f{background:transparent;border-top:1px solid rgba(255,255,255,.1);color:#8f9ac9}
+@media(max-width:900px){
+  #app .land{display:flex;flex-direction:column}
+  #app .land .login-clock{position:static;margin:14px auto 0;padding:8px 16px 10px}
+  #app .land .login-clock .ck-t{font-size:20px}
+  #app .land-l{padding:26px 24px 6px}
+  #app .land h1{font-size:34px;margin:12px 0 8px}
+  #app .land .lead{font-size:14.5px;margin-bottom:14px}
+  #app .land .art{display:none}
+  #app .stg{min-width:0;padding:8px 12px}
+  #app .land-r{padding:16px}
+  #app .lg-card{padding:24px 20px}
+}
