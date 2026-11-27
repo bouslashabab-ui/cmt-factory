@@ -161,7 +161,32 @@ async function aiAsk(body) {
     return { answer: t || 'لا توجد إجابة.', model };
   } catch (e) { return { error: 'تعذر الاتصال بالمساعد الذكي.' }; }
 }
+
+/* Period lock: records dated before setting lock_before (YYYY-MM-DD) cannot be created, edited or deleted. Admin clears the setting to unlock. */
+const LOCK_T = { orders: 'cut_orders', outs: 'outs', expenses: 'expenses', payments: 'payments' };
+async function lockCheck(head, req, id, body) {
+  const t = LOCK_T[head]; if (!t || !['POST', 'PUT', 'DELETE'].includes(req.method)) return;
+  const s = await C.getSettings(); const lb = String(s.lock_before || '').trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(lb)) return;
+  const dates = []; if (body && body.date) dates.push(String(body.date).slice(0, 10));
+  if (id && (req.method === 'PUT' || req.method === 'DELETE')) { const [r] = await C.db().query('SELECT date FROM ' + t + ' WHERE id=?', [id]); if (r[0] && r[0].date) dates.push(r[0].date instanceof Date ? r[0].date.toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }) : String(r[0].date).slice(0, 10)); }
+  if (dates.some(d => d < lb)) throw new HttpError(423, 'الفترة مقفلة: لا يمكن إضافة أو تعديل أو حذف سجل بتاريخ قبل ' + lb + '. يمكن للمدير فتح الفترة من الإعدادات.');
+}
+
+async function dailyClose(q) {
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(q.date || '') ? q.date : new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+  const one = async (sql) => (await Q(sql, [d]))[0] || {};
+  const prod = await Q('SELECT st.name stage, SUM(p.qty_ok) ok, SUM(p.qty_defect) defect FROM prod_logs p JOIN stages st ON st.id=p.stage_id WHERE p.date=? GROUP BY st.id, st.name ORDER BY st.id', [d]);
+  const del = await one('SELECT COUNT(*) n FROM deliveries WHERE date=?');
+  const delq = await one('SELECT COALESCE(SUM(l.qty),0) q FROM delivery_lines l JOIN deliveries x ON x.id=l.delivery_id WHERE x.date=?').catch(() => ({ q: 0 }));
+  const rec = await one('SELECT COUNT(*) n FROM receipts WHERE date=?').catch(() => ({ n: 0 }));
+  const pay = await one('SELECT COUNT(*) n, COALESCE(SUM(amount),0) s FROM payments WHERE date=?');
+  const exp = await one('SELECT COUNT(*) n, COALESCE(SUM(amount),0) s FROM expenses WHERE date=?');
+  const att = await Q('SELECT status, COUNT(*) n FROM attendance WHERE date=? GROUP BY status', [d]);
+  const ords = await one('SELECT COUNT(*) n FROM cut_orders WHERE date=?');
+  return { date: d, production: prod, deliveries: { n: del.n || 0, qty: Number(delq.q || 0) }, receipts: rec.n || 0, orders: ords.n || 0, payments: { n: pay.n || 0, total: Number(pay.s || 0) }, expenses: { n: exp.n || 0, total: Number(exp.s || 0) }, attendance: att };
+}
 async function api(head, req, u, id, body, q) {
+  if (head === 'daily-close' && req.method === 'GET') return dailyClose(q || {});
   if (head === 'ai-ask' && req.method === 'POST') return aiAsk(body);
   if (head === 'expenses') return expensesApi(req, u, id, body);
   if (head === 'profit') return profit();
@@ -171,4 +196,4 @@ async function api(head, req, u, id, body, q) {
   if (head === 'check') return check(body);
   return undefined;
 }
-module.exports = { api };
+module.exports = { api , lockCheck };
