@@ -188,6 +188,7 @@ function confirmDialog(title, msg, buttons) {
     document.body.append(ov);
   });
 }
+function isWinDirty(id) { const d = (MZ.dirty || {})[id]; if (!d) return false; try { return !!(d.isDirty && d.isDirty()); } catch (e) { return false; } }
 async function dirtyGuard(winId, proceed) {
   const d = (MZ.dirty || {})[winId];
   let isD = false; try { isD = !!(d && d.isDirty && d.isDirty()); } catch (e) {}
@@ -202,7 +203,7 @@ window.confirmDialog = confirmDialog;
 
 /* ---------- window manager (MDI tabs) ---------- */
 function openWin(id, title, build, opts = {}) {
-  if (MZ.active && MZ.active !== id && MZ.dirty && MZ.dirty[MZ.active]) { dirtyGuard(MZ.active, () => openWin(id, title, build, opts)); return MZ.wins[id]; }
+  if (MZ.active && MZ.active !== id && isWinDirty(MZ.active)) { dirtyGuard(MZ.active, () => openWin(id, title, build, opts)); return MZ.wins[id]; }
   SND.play("open");
   if (MZ.wins[id]) { activate(id); if (opts.refresh) MZ.wins[id].refresh && MZ.wins[id].refresh(); return MZ.wins[id]; }
   const body = h('div', { class: 'win-content' });
@@ -219,7 +220,7 @@ function activate(id) {
   renderTabs();
 }
 function closeWin(id) {
-  if (MZ.dirty && MZ.dirty[id]) { dirtyGuard(id, () => closeWin(id)); return; }
+  if (isWinDirty(id)) { dirtyGuard(id, () => closeWin(id)); return; }
   SND.play("close");
   const w = MZ.wins[id]; if (!w) return;
   w.body.remove(); delete MZ.wins[id]; MZ.order = MZ.order.filter(x => x !== id);
@@ -227,7 +228,7 @@ function closeWin(id) {
 }
 function renderTabs() {
   const t = $('#tabs'); if (!t) return; t.innerHTML = '';
-  MZ.order.forEach(id => { const w = MZ.wins[id]; t.append(h('div', { class: 'tab' + (id === MZ.active ? ' on' : ''), onclick: () => { if (MZ.active !== id && MZ.dirty && MZ.dirty[MZ.active]) dirtyGuard(MZ.active, () => activate(id)); else activate(id); } }, h('span', null, w.title), id !== 'home' ? h('b', { onclick: (e) => { e.stopPropagation(); closeWin(id); } }, '×') : null)); });
+  MZ.order.forEach(id => { const w = MZ.wins[id]; t.append(h('div', { class: 'tab' + (id === MZ.active ? ' on' : ''), onclick: () => { if (MZ.active !== id && isWinDirty(MZ.active)) dirtyGuard(MZ.active, () => activate(id)); else activate(id); } }, h('span', null, w.title), id !== 'home' ? h('b', { onclick: (e) => { e.stopPropagation(); closeWin(id); } }, '×') : null)); });
   if (window.updateTopnav) try { window.updateTopnav(); } catch (e) {}
 }
 
