@@ -315,7 +315,10 @@ P.settings = async () => {
   const ltSel = h('select', { style: { padding: '9px 14px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px', minWidth: '220px' }, onchange: async () => { localStorage.setItem('cmt_ltheme', ltSel.value); try { await PUT('/settings', { login_theme: ltSel.value }); } catch (e) {} toast('تم اختيار تصميم شاشة الدخول'); } }, ...LT_OPTS.map(([v, t]) => h('option', { value: v }, t)));
   ltSel.value = localStorage.getItem('cmt_ltheme') || s.login_theme || 'classic';
   const ltPanel = h('div', { class: 'panel', style: { marginTop: '14px' } }, h('div', { class: 'ph' }, '🎨 تصميم شاشة الدخول'), h('div', { class: 'pb' }, h('p', { style: { color: '#777', fontSize: '13px', margin: '0 0 10px' } }, 'اختر شكل شاشة الدخول. يمكن أيضًا تبديله مباشرة من شاشة الدخول نفسها (شريط التصميم أسفل الشاشة).'), ltSel));
-  return h('div', null, pageHead('الإعدادات'), h('div', { class: 'panel' }, h('div', { class: 'pb' }, f.el, btn('💾 حفظ', async () => { await PUT('/settings', f.get()); Object.assign(MZ.settings, f.get()); toast('تم الحفظ'); }, 'pri'), ' ', btn('🔑 تغيير كلمة مروري', pw))), ltPanel);
+  const langSel = h('select', { class: 'lang-sel', style: { padding: '9px 14px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px', minWidth: '220px' }, onchange: () => I18N_SET(langSel.value) }, h('option', { value: 'ar' }, 'العربية'), h('option', { value: 'en' }, 'English'));
+  langSel.value = window.I18N ? I18N.lang : 'ar';
+  const langPanel = h('div', { class: 'panel', style: { marginTop: '14px' } }, h('div', { class: 'ph' }, '🌐 اللغة / Language'), h('div', { class: 'pb' }, h('p', { style: { color: '#777', fontSize: '13px', margin: '0 0 10px' } }, 'اختر لغة الواجهة. تُحفظ وتطبق فورًا على كل الشاشات.'), langSel));
+  return h('div', null, pageHead('الإعدادات'), h('div', { class: 'panel' }, h('div', { class: 'pb' }, f.el, btn('💾 حفظ', async () => { await PUT('/settings', f.get()); Object.assign(MZ.settings, f.get()); toast('تم الحفظ'); }, 'pri'), ' ', btn('🔑 تغيير كلمة مروري', pw))), ltPanel, langPanel);
 };
 P.users = async () => {
   const root = h('div');
