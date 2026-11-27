@@ -378,3 +378,6 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .ch-g{font-size:19px;font-weight:900}
 .ch-h{font-size:12.5px;color:#aeb6dd}
 @media(max-width:900px){.clock-hero{flex-direction:column;align-items:flex-start;gap:12px;padding:14px 18px}.bigclock .ck-t{font-size:26px}}
+/* keep all 9 sections visible on narrower laptops: logo-only brand, drop bar clock */
+@media(min-width:901px) and (max-width:1500px){.tn-brand h1{display:none}.topnav{gap:6px;padding:0 10px}}
+@media(min-width:901px) and (max-width:1400px){.topnav .today{display:none}}
