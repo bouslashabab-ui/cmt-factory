@@ -515,12 +515,21 @@
   const tracked = new Set();
   const trackedAttrs = new Set();
 
+  const PREFIX = [
+    ['صباح الخير يا ', 'Good morning, '],
+    ['مساء الخير يا ', 'Good evening, '],
+    ['مساء النور يا ', 'Good evening, '],
+    ['الرئيسية - ', 'Home - '],
+    ['تعديل: ', 'Edit: '],
+    ['جديد: ', 'New: ']
+  ];
   function trText(s) {
     const t = s.trim();
     if (!t || !AR_RE.test(t)) return null;
     const en = DICT[t];
-    if (!en) return null;
-    return s.replace(t, en);
+    if (en) return s.replace(t, en);
+    for (const [ap, ep] of PREFIX) if (t.startsWith(ap)) return s.replace(t, ep + t.slice(ap.length));
+    return null;
   }
   function walkText(root) {
     let it;
