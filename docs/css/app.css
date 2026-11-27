@@ -69,7 +69,7 @@ textarea.inp{resize:vertical}
 table.grid{border-collapse:collapse;width:100%}
 .grid th{background:var(--soft);color:#5d6e68;text-align:right;padding:11px 12px;font-weight:700;font-size:12.5px;position:sticky;top:0;white-space:nowrap;border-bottom:2px solid var(--ink)}
 .grid td{padding:10px 12px;border-bottom:1px solid #eeefe6;vertical-align:middle}
-.grid tbody tr:hover{background:#f3fbdf}
+.grid tbody tr:hover{background:#eef0ff}
 .grid tbody tr[onclick],.grid tbody tr.click{cursor:pointer}
 .grid td.num,.grid th.num{text-align:left;direction:ltr}
 .grid tfoot td{background:var(--ink);color:#fff;font-weight:700;padding:10px 12px}
@@ -102,7 +102,7 @@ table.grid{border-collapse:collapse;width:100%}
 @media(max-width:900px){.split{grid-template-columns:1fr}}
 .tree{max-height:68vh;overflow:auto;padding:6px}
 .tn{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;cursor:pointer;white-space:nowrap}
-.tn:hover{background:#f3fbdf}.tn.sel{background:var(--lime);font-weight:700}
+.tn:hover{background:#eef0ff}.tn.sel{background:var(--lime);font-weight:700}
 .tn .tg{width:16px;text-align:center;color:var(--teal)}.tn .cd{color:var(--mut);font-size:12px}
 .ctabs{display:flex;gap:4px;border-bottom:2px solid var(--ink);margin-bottom:12px}
 .ctab{padding:7px 16px;cursor:pointer;background:var(--soft);border-radius:8px 8px 0 0}
