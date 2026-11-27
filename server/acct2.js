@@ -5,11 +5,13 @@ const { bad, isDate, HttpError } = C;
 const Q = async (sql, p) => (await C.db().query(sql, p))[0];
 const r2 = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 const EXTRA = [['1400', 'مصروفات مدفوعة مقدمًا', 'asset'], ['1450', 'ضريبة القيمة المضافة - مدخلات', 'asset'], ['2500', 'ضريبة القيمة المضافة - مخرجات', 'liability'], ['5700', 'رواتب وأجور إدارية', 'expense']];
-const SCH = [];
+const SCH = [
+`CREATE TABLE IF NOT EXISTS bank_recs(id INT AUTO_INCREMENT PRIMARY KEY, statement_date DATE NOT NULL, statement_balance DECIMAL(16,2) NOT NULL, cleared_net DECIMAL(16,2) NOT NULL, book_balance DECIMAL(16,2) NOT NULL, difference DECIMAL(16,2) NOT NULL, created_by INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX(statement_date))`];
 let readyP = null;
 function ensure() {
   if (!readyP) readyP = (async () => {
     for (const s of SCH) await C.db().query(s);
+    try { await C.db().query('ALTER TABLE gl_lines ADD COLUMN rec_id INT NULL'); } catch (e) { /* exists */ }
     for (const a of EXTRA) await C.db().query('INSERT IGNORE INTO gl_accounts(code,name,type) VALUES(?,?,?)', a);
   })().catch((e) => { readyP = null; throw e; });
   return readyP;
@@ -61,10 +63,55 @@ async function cashflow(q) {
     check: { direct_ok: Math.abs(directNet - net) < 0.005, indirect_ok: Math.abs(indirectNet - net) < 0.005, diff_direct: r2(directNet - net), diff_indirect: r2(indirectNet - net) } };
 }
 
+/* ---------- bank reconciliation: GL bank account 1110 vs the bank statement ---------- */
+const BANK = '1110';
+const bankAccId = async () => { const a = (await Q('SELECT id FROM gl_accounts WHERE code=?', [BANK]))[0]; if (!a) throw bad('حساب البنك 1110 غير موجود في دليل الحسابات'); return a.id; };
+async function bankrecGet(q) {
+  const to = isDate(q.to) ? q.to : new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+  const accId = await bankAccId();
+  const rows = await Q("SELECT l.id line_id, l.entry_id, e.no, e.date, e.memo, e.kind, l.debit, l.credit, l.rec_id FROM gl_lines l JOIN gl_entries e ON e.id=l.entry_id AND e.date<=? AND e.kind<>'closing' WHERE l.account_id=? ORDER BY e.date, e.id, l.id", [to, accId]);
+  const f = (r) => Number(r.debit) - Number(r.credit);
+  const book = r2(rows.reduce((s, r) => s + f(r), 0));
+  const un = rows.filter(r => !r.rec_id);
+  const clearedNet = r2(rows.filter(r => r.rec_id).reduce((s, r) => s + f(r), 0));
+  const last = (await Q('SELECT * FROM bank_recs ORDER BY statement_date DESC, id DESC LIMIT 1'))[0] || null;
+  return { to, book, cleared_net: clearedNet, uncleared_net: r2(book - clearedNet),
+    stats: { count: rows.length, cleared_count: rows.length - un.length, uncleared_count: un.length, uncleared_debits: r2(un.reduce((s, r) => s + Number(r.debit), 0)), uncleared_credits: r2(un.reduce((s, r) => s + Number(r.credit), 0)) },
+    lines: rows.map(r => ({ line_id: r.line_id, entry_id: r.entry_id, no: r.no, date: r.date, memo: r.memo, debit: Number(r.debit), credit: Number(r.credit), cleared: !!r.rec_id })),
+    last_rec: last };
+}
+async function bankrecPost(u, body) {
+  const date = body.date; if (!isDate(date)) throw bad('تاريخ كشف البنك غير صحيح');
+  const sb = r2(body.statement_balance); if (!isFinite(sb)) throw bad('رصيد كشف البنك غير صحيح');
+  const ids = Array.isArray(body.line_ids) ? body.line_ids.map(x => +x).filter(Number.isInteger) : [];
+  const accId = await bankAccId();
+  const rows = await Q("SELECT l.id, l.debit, l.credit, l.rec_id FROM gl_lines l JOIN gl_entries e ON e.id=l.entry_id AND e.date<=? AND e.kind<>'closing' WHERE l.account_id=?", [date, accId]);
+  const byId = {}; rows.forEach(r => { byId[r.id] = r; });
+  const idSet = new Set(ids);
+  for (const r of rows) if (r.rec_id && !idSet.has(r.id)) throw bad('لا يمكن إلغاء مطابقة حركة اعتُمدت في تسوية سابقة');
+  for (const i of ids) if (!byId[i]) throw bad('حركة غير موجودة ضمن كشف هذا التاريخ');
+  const net = r2(ids.reduce((s, i) => s + (Number(byId[i].debit) - Number(byId[i].credit)), 0));
+  const diff = r2(sb - net);
+  if (Math.abs(diff) >= 0.005) throw bad('التسوية غير متوازنة: الفرق ' + diff + ' بين كشف البنك والحركات المحددة. راجع التحديد أو سجّل حركات البنك الناقصة (عمولات، فوائد) بقيد يومية أولًا');
+  const book = r2(rows.reduce((s, r) => s + (Number(r.debit) - Number(r.credit)), 0));
+  return C.tx(async (conn) => {
+    const [r] = await conn.query('INSERT INTO bank_recs(statement_date,statement_balance,cleared_net,book_balance,difference,created_by) VALUES(?,?,?,?,?,?)', [date, sb, net, book, diff, u.id]);
+    let newly = 0;
+    for (const i of ids) if (!byId[i].rec_id) { await conn.query('UPDATE gl_lines SET rec_id=? WHERE id=?', [r.insertId, i]); newly++; }
+    await C.audit(u, 'create', 'bank_rec', r.insertId, date + ' bal=' + sb, conn);
+    return { id: r.insertId, statement_balance: sb, cleared_net: net, book, difference: diff, newly_cleared: newly };
+  });
+}
+
 async function api(head, req, u, id, body, q, parts) {
   if (head !== 'gl2') return undefined; await ensure(); const sub = parts[1], m = req.method;
   const write = () => { if (u.role === 'viewer') throw new HttpError(403, 'صلاحيتك للعرض فقط'); };
   if (sub === 'cashflow' && m === 'GET') return cashflow(q);
+  if (sub === 'bankrec') {
+    if (m === 'GET') return bankrecGet(q);
+    write(); if (m === 'POST') return bankrecPost(u, body);
+  }
+  if (sub === 'bankrecs' && m === 'GET') return Q('SELECT * FROM bank_recs ORDER BY statement_date DESC, id DESC LIMIT 50');
   throw new HttpError(404, 'غير موجود');
 }
-module.exports = { api, ensure, cashflow };
+module.exports = { api, ensure, cashflow, bankrecGet };
