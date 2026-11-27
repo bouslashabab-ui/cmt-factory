@@ -142,6 +142,7 @@ function confirmBox(msg) {
 
 /* ---------- table ---------- */
 function table(cols, rows, opts = {}) {
+  if (!Array.isArray(rows)) rows = [];
   const tb = h('table', { class: 'grid' });
   tb.append(h('thead', null, h('tr', null, cols.map(c => h('th', { class: c.cls || '' }, c.t)))));
   const body = h('tbody');
@@ -160,6 +161,7 @@ function table(cols, rows, opts = {}) {
   return h('div', { class: 'tbl-wrap' }, tb);
 }
 function csvOf(cols, rows) {
+  if (!Array.isArray(rows)) rows = [];
   const q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
   return '\ufeff' + [cols.map(c => q(c.t)).join(','), ...rows.map((r, i) => cols.map(c => q(c.csv ? c.csv(r, i) : (c.f ? (typeof c.f(r, i) === 'object' ? '' : c.f(r, i)) : r[c.k]))).join(','))].join('\n');
 }
