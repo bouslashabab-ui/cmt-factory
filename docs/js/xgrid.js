@@ -107,6 +107,7 @@ window.XG = (function () {
       rows: () => rows.filter(r => (r.description && String(r.description).trim()) || r.item_id || (parseFloat(r.qty) > 0)),
       addRow: () => { addRow(); focus(rows.length - 1, 0); },
       clear: () => { rows = [blank()]; render(); if (opts.onChange) opts.onChange(rows); },
+      setRows: (rs) => { rows = rs.map(r => Object.assign(blank(), r)); rows.push(blank()); render(); if (opts.onChange) opts.onChange(rows); },
       setItems: (items) => { opts.items = items; dl.innerHTML = ''; dl.append(...items.map(i => h('option', { value: i.code + ' — ' + i.name }))); }
     };
   }
