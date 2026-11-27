@@ -13,7 +13,9 @@ const SCH = [
 `CREATE TABLE IF NOT EXISTS payroll_accruals(id INT AUTO_INCREMENT PRIMARY KEY, ym CHAR(7) NOT NULL UNIQUE, gross DECIMAL(16,2) NOT NULL, net DECIMAL(16,2) NOT NULL, advances DECIMAL(16,2) NOT NULL, other_ded DECIMAL(16,2) NOT NULL, entry_id INT NOT NULL, paid_amount DECIMAL(16,2) NOT NULL DEFAULT 0, created_by INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
 `CREATE TABLE IF NOT EXISTS prepaids(id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, expense_account_id INT NOT NULL, start_month CHAR(7) NOT NULL, months INT NOT NULL, total DECIMAL(16,2) NOT NULL, amortized DECIMAL(16,2) NOT NULL DEFAULT 0, pay_entry_id INT, created_by INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
 `CREATE TABLE IF NOT EXISTS prepaid_amort(id INT AUTO_INCREMENT PRIMARY KEY, prepaid_id INT NOT NULL, month CHAR(7) NOT NULL, amount DECIMAL(16,2) NOT NULL, entry_id INT NOT NULL, created_by INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_prepaid_month(prepaid_id,month), INDEX(month))`,
-`CREATE TABLE IF NOT EXISTS accruals(id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, month CHAR(7) NOT NULL, amount DECIMAL(16,2) NOT NULL, expense_account_id INT NOT NULL, entry_id INT NOT NULL, settled TINYINT NOT NULL DEFAULT 0, settled_entry_id INT NULL, settled_date DATE NULL, created_by INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`];
+`CREATE TABLE IF NOT EXISTS accruals(id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, month CHAR(7) NOT NULL, amount DECIMAL(16,2) NOT NULL, expense_account_id INT NOT NULL, entry_id INT NOT NULL, settled TINYINT NOT NULL DEFAULT 0, settled_entry_id INT NULL, settled_date DATE NULL, created_by INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+`CREATE TABLE IF NOT EXISTS vat_docs(id INT AUTO_INCREMENT PRIMARY KEY, date DATE NOT NULL, kind VARCHAR(10) NOT NULL, party VARCHAR(160), base DECIMAL(16,2) NOT NULL, rate DECIMAL(6,2) NOT NULL, vat DECIMAL(16,2) NOT NULL, total DECIMAL(16,2) NOT NULL, net_account_id INT NOT NULL, settle_account_id INT NOT NULL, entry_id INT NOT NULL, created_by INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX(date), INDEX(kind))`,
+`CREATE TABLE IF NOT EXISTS vat_settlements(id INT AUTO_INCREMENT PRIMARY KEY, date DATE NOT NULL, output DECIMAL(16,2) NOT NULL, input_used DECIMAL(16,2) NOT NULL, paid DECIMAL(16,2) NOT NULL, entry_id INT NOT NULL, created_by INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`];
 let readyP = null;
 function ensure() {
   if (!readyP) readyP = (async () => {
@@ -315,6 +317,78 @@ async function accrualSettle(u, body) {
   });
 }
 
+
+/* ---------- VAT (ضريبة القيمة المضافة): taxable docs + periodic settlement ---------- */
+const VAT_IN = '1450', VAT_OUT = '2500';
+async function vatDocsList(q) {
+  const from = isDate(q.from) ? q.from : '2000-01-01', to = isDate(q.to) ? q.to : '2099-12-31';
+  return Q('SELECT v.*, a.name account_name, s.name settle_name, e.no entry_no FROM vat_docs v JOIN gl_accounts a ON a.id=v.net_account_id JOIN gl_accounts s ON s.id=v.settle_account_id LEFT JOIN gl_entries e ON e.id=v.entry_id WHERE v.date>=? AND v.date<=? ORDER BY v.date DESC, v.id DESC', [from, to]);
+}
+/* signed GL balance (debit - credit) of one account at a date, closing entries excluded */
+async function accBalAt(code, date) {
+  const [r] = await Q("SELECT COALESCE(SUM(l.debit-l.credit),0) b FROM gl_lines l JOIN gl_entries e ON e.id=l.entry_id JOIN gl_accounts a ON a.id=l.account_id WHERE a.code=? AND e.date<=? AND e.kind<>'closing'", [code, date]);
+  return r2(Number(r.b));
+}
+async function vatReport(q) {
+  const to = isDate(q.to) ? q.to : new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+  const from = isDate(q.from) ? q.from : to.slice(0, 4) + '-01-01';
+  const [per] = await Q("SELECT COALESCE(SUM(CASE WHEN kind='sale' THEN base END),0) sales_base, COALESCE(SUM(CASE WHEN kind='sale' THEN vat END),0) sales_vat, COALESCE(SUM(CASE WHEN kind='purchase' THEN base END),0) purch_base, COALESCE(SUM(CASE WHEN kind='purchase' THEN vat END),0) purch_vat, SUM(kind='sale') sales_count, SUM(kind='purchase') purch_count FROM vat_docs WHERE date>=? AND date<=?", [from, to]);
+  const balOut = r2(-(await accBalAt(VAT_OUT, to))); /* liability: credit balance = owed */
+  const balIn = await accBalAt(VAT_IN, to);
+  return { from, to, sales_base: r2(per.sales_base), sales_vat: r2(per.sales_vat), purch_base: r2(per.purch_base), purch_vat: r2(per.purch_vat), sales_count: Number(per.sales_count || 0), purch_count: Number(per.purch_count || 0), balance_output: Math.max(0, balOut), balance_input: Math.max(0, balIn), net_due: Math.max(0, r2(Math.max(0, balOut) - Math.max(0, balIn))), carry_forward: Math.max(0, r2(Math.max(0, balIn) - Math.max(0, balOut))) };
+}
+async function vatDocCreate(u, body) {
+  const kind = String(body.kind || '');
+  if (!['sale', 'purchase'].includes(kind)) throw bad('نوع المستند غير صحيح');
+  const date = isDate(body.date) ? body.date : new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+  await ACC.lockGuard(date);
+  const amount = Number(body.amount); if (!(amount > 0)) throw bad('المبلغ غير صحيح');
+  const rate = body.rate === undefined || body.rate === '' ? 14 : Number(body.rate);
+  if (!(rate >= 0 && rate <= 100)) throw bad('نسبة الضريبة غير صحيحة');
+  const included = !!body.vat_included;
+  const base = included ? r2(amount / (1 + rate / 100)) : r2(amount);
+  const vat = r2(included ? amount - base : base * rate / 100);
+  const total = r2(base + vat);
+  const party = String(body.party || '').trim().slice(0, 160) || null;
+  const netCode = String(body.net_account || '');
+  const netAcc = (await Q('SELECT id,type FROM gl_accounts WHERE code=? AND active=1', [netCode]))[0];
+  if (!netAcc) throw bad('حساب الإيراد/المصروف غير موجود');
+  if (kind === 'sale' && netAcc.type !== 'revenue') throw bad('مستند البيع يحتاج حساب إيراد');
+  if (kind === 'purchase' && netAcc.type !== 'expense' && netAcc.type !== 'asset') throw bad('مستند الشراء يحتاج حساب مصروف أو أصل');
+  const settleCode = String(body.settle_account || '');
+  const settleOk = kind === 'sale' ? ['1200', '1100', '1110'] : ['2100', '1100', '1110'];
+  if (!settleOk.includes(settleCode)) throw bad('حساب السداد غير صحيح');
+  const settleId = await accIdOf(settleCode), vatIn = await accIdOf(VAT_IN), vatOut = await accIdOf(VAT_OUT);
+  return C.tx(async (conn) => {
+    const lines = kind === 'sale'
+      ? [{ account_id: settleId, debit: total }, { account_id: netAcc.id, credit: base }, { account_id: vatOut, credit: vat }]
+      : [{ account_id: netAcc.id, debit: base }, { account_id: vatIn, debit: vat }, { account_id: settleId, credit: total }];
+    const memo = (kind === 'sale' ? 'فاتورة بيع ضريبية' : 'فاتورة شراء ضريبية') + (party ? ': ' + party : '');
+    const [r] = await conn.query('INSERT INTO vat_docs(date,kind,party,base,rate,vat,total,net_account_id,settle_account_id,entry_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,0,?)', [date, kind, party, base, rate, vat, total, netAcc.id, settleId, u.id]);
+    const entry = await ACC.post(conn, date, memo, 'normal', lines, { source: 'vat_doc', source_id: r.insertId, uid: u.id });
+    await conn.query('UPDATE vat_docs SET entry_id=? WHERE id=?', [entry.id, r.insertId]);
+    await C.audit(u, 'add', 'vat_doc', r.insertId, memo, conn);
+    return { id: r.insertId, entry, base, vat, total };
+  });
+}
+async function vatSettle(u, body) {
+  const date = isDate(body.date) ? body.date : new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+  await ACC.lockGuard(date);
+  const owed = r2(-(await accBalAt(VAT_OUT, date)));
+  if (!(owed > 0)) throw bad('لا توجد ضريبة مخرجات مستحقة للتسوية');
+  const input = r2(Math.max(0, await accBalAt(VAT_IN, date)));
+  const used = r2(Math.min(owed, input));
+  const pay = r2(owed - used);
+  const pacct = PAY_ACCS.includes(String(body.pay_account)) ? String(body.pay_account) : '1100';
+  const vOut = await accIdOf(VAT_OUT), vIn = await accIdOf(VAT_IN), payId = await accIdOf(pacct);
+  return C.tx(async (conn) => {
+    const lines = [{ account_id: vOut, debit: owed }, ...(used > 0 ? [{ account_id: vIn, credit: used }] : []), ...(pay > 0 ? [{ account_id: payId, credit: pay }] : [])];
+    const entry = await ACC.post(conn, date, 'تسوية ضريبة القيمة المضافة حتى ' + date, 'normal', lines, { source: 'vat_settle', source_id: 0, uid: u.id });
+    const [r] = await conn.query('INSERT INTO vat_settlements(date,output,input_used,paid,entry_id,created_by) VALUES(?,?,?,?,?,?)', [date, owed, used, pay, entry.id, u.id]);
+    await C.audit(u, 'add', 'vat_settle', r.insertId, 'تسوية ض.ق.م ' + date, conn);
+    return { entry, output: owed, input_used: used, paid: pay };
+  });
+}
 async function api(head, req, u, id, body, q, parts) {
   if (head !== 'gl2') return undefined; await ensure(); const sub = parts[1], m = req.method;
   const write = () => { if (u.role === 'viewer') throw new HttpError(403, 'صلاحيتك للعرض فقط'); };
@@ -353,6 +427,13 @@ async function api(head, req, u, id, body, q, parts) {
     write(); if (m === 'POST') return accrualCreate(u, body);
   }
   if (sub === 'accrual-settle') { write(); if (m === 'POST') return accrualSettle(u, body); }
+  if (sub === 'vat-docs') {
+    if (m === 'GET') return vatDocsList(q);
+    write(); if (m === 'POST') return vatDocCreate(u, body);
+  }
+  if (sub === 'vat-report' && m === 'GET') return vatReport(q);
+  if (sub === 'vat-settle') { write(); if (m === 'POST') return vatSettle(u, body); }
+  if (sub === 'vat-settlements' && m === 'GET') return Q('SELECT v.*, e.no entry_no FROM vat_settlements v LEFT JOIN gl_entries e ON e.id=v.entry_id ORDER BY v.id DESC LIMIT 50');
   throw new HttpError(404, 'غير موجود');
 }
 module.exports = { api, ensure, cashflow, bankrecGet };
