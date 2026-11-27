@@ -66,7 +66,8 @@
         columns: [
           { key: 'item', title: 'الصنف (كود أو اسم)', type: 'item', width: '22%' },
           { key: 'description', title: 'البيان', type: 'text', width: '34%' },
-          { key: 'qty', title: 'الكمية', type: 'num', width: '10%' },
+          { key: 'qty', title: 'الكمية', type: 'num', width: '9%' },
+          { key: '_unit', title: 'الوحدة', type: 'unit', width: '7%' },
           { key: 'price', title: 'سعر الوحدة', type: 'num', width: '12%' },
           { key: 'disc', title: 'خصم %', type: 'num', width: '9%' },
           { key: 'total', title: 'الإجمالي', type: 'calc', width: '13%' }],
