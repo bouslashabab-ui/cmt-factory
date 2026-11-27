@@ -17,7 +17,8 @@ const TOOLBAR = [['🏠', 'الرئيسية', 'home'], ['🧾', 'الفواتي�
 const TITLES = {}; MENUS.forEach(m => m[1].forEach(i => { TITLES[i[2]] = i[1]; })); TITLES.home = 'الرئيسية';
 
 async function openPage(key) {
-  const f = MZ.pages[key]; if (!f) return toast('الشاشة غير متاحة', 'err');
+  const f = MZ.pages[key]; if (!f && !String(key).startsWith('sinv_view_')) return toast('الشاشة غير متاحة', 'err');
+  try { history.replaceState(null, '', '#p=' + key); } catch (e) {}
   openWin(key, TITLES[key] || key, async () => { const r = f(); return await r; }, { refresh: true });
 }
 function logout() { SND.play('logout'); sessionStorage.removeItem('cmt_tok'); setTimeout(() => location.reload(), 650); }
@@ -46,6 +47,9 @@ function shell() {
   new MutationObserver(sync).observe($('#tabs'), { subtree: true, childList: true, attributes: true });
   openWin('home', 'الرئيسية', () => MZ.pages.home());
   sync(); setTimeout(() => assistCount(), 1500);
+  const hm = (location.hash || '').match(/^#p=([A-Za-z0-9_]+)/);
+  if (hm && hm[1] !== 'home') setTimeout(() => openPage(hm[1]), 400);
+  if (!window.__hashBound) { window.__hashBound = true; window.addEventListener('hashchange', () => { const mm = (location.hash || '').match(/^#p=([A-Za-z0-9_]+)/); if (mm) openPage(mm[1]); }); }
 }
 
 async function boot() {
