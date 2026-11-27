@@ -141,7 +141,28 @@ async function check(body) {
   return { hints };
 }
 
+
+/* AI helper: Gemini free tier. Sends ONLY aggregated numbers (no client names, codes or prices per client). Key lives in env GEMINI_API_KEY. */
+let aiHits = [];
+async function aiAsk(body) {
+  const key = process.env.GEMINI_API_KEY; if (!key) return { error: 'المساعد الذكي غير مفعّل (لا يوجد مفتاح).' };
+  const q = String((body && body.question) || '').trim().slice(0, 500); if (!q) return { error: 'اكتب سؤالك.' };
+  const now = Date.now(); aiHits = aiHits.filter(t => now - t < 60000); if (aiHits.length >= 10) return { error: 'عدد كبير من الأسئلة، حاول بعد دقيقة.' }; aiHits.push(now);
+  const W_ = W(); const ords = await W_.ordList({}); const store = await W_.storeList({}); const a = await assistant(); const p = await profit();
+  const sum = (arr, f) => r2(arr.reduce((x, o) => x + nn(f(o)), 0));
+  const areas = {}; a.items.forEach(i => { const k = i.area + '/' + (i.level === 'err' ? 'خطأ' : i.level === 'warn' ? 'تنبيه' : 'معلومة'); areas[k] = (areas[k] || 0) + 1; });
+  const ctx = { عدد_أوامر_القص: ords.length, إجمالي_القطع: sum(ords, o => o.total), إجمالي_التكلفة_على_العملاء: sum(ords, o => o.cost_total), المسلّم: sum(ords, o => o.delivered), المتبقي_للتسليم: sum(ords, o => o.left), إجمالي_الهالك_كجم: sum(ords, o => o.waste), الوزن_المحول_كجم: sum(ords, o => o.weight_in), أصناف_المخزن: store.length, المصروفات: p.totals.expenses, الإيراد: p.totals.revenue, الربح: r2(p.totals.revenue - p.totals.expenses), تنبيهات_المساعد: a.counts, تفاصيل_التنبيهات_حسب_القسم: areas };
+  const prompt = 'أنت مساعد لمصنع ملابس (تصنيع للغير، العميل يملك القماش). أجب بالعربية باختصار ووضوح اعتماداً فقط على الأرقام المجمعة التالية، ولا تخترع أرقاماً. إذا لم تكفِ البيانات قل ذلك.\nالأرقام: ' + JSON.stringify(ctx) + '\nالسؤال: ' + q;
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+  try {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+    const j = await r.json(); if (!r.ok) return { error: 'تعذر الاتصال بالمساعد الذكي (' + r.status + ').' };
+    const t = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts ? j.candidates[0].content.parts.map(x => x.text || '').join('') : '';
+    return { answer: t || 'لا توجد إجابة.', model };
+  } catch (e) { return { error: 'تعذر الاتصال بالمساعد الذكي.' }; }
+}
 async function api(head, req, u, id, body, q) {
+  if (head === 'ai-ask' && req.method === 'POST') return aiAsk(body);
   if (head === 'expenses') return expensesApi(req, u, id, body);
   if (head === 'profit') return profit();
   if (head === 'aging') return aging();
