@@ -57,7 +57,7 @@ async function api(head, req, u, id, body, q, parts) {
     const uc = kind === 'in' ? Number(body.unit_cost) : 0; if (kind === 'in' && !(uc >= 0)) throw bad('تكلفة الوحدة غير صحيحة');
     const ins = (k, wid, g, c) => C.db().query('INSERT INTO inv_moves(date,item_id,wh_id,kind,qty,unit_cost,ref,notes,grp,created_by) VALUES(?,?,?,?,?,?,?,?,?,?)', [body.date, item, wid, k, qty, c, String(body.ref || '').slice(0, 60), String(body.notes || '').slice(0, 250), g, u.id]);
     if (kind === 'transfer') { const to = +body.to_wh; if (!to || to === w || !(await Q('SELECT id FROM inv_wh WHERE id=?', [to])).length) throw bad('اختر مخزنًا مختلفًا للتحويل'); const g = 'T' + Date.now(); await ins('trout', w, g, 0); await ins('trin', to, g, 0); }
-    else await ins(kind, w, null, uc);
+    else { const [ir] = await ins(kind, w, null, uc); if (kind === 'in' && +body.supplier_id) { try { await C.db().query('UPDATE inv_moves SET supplier_id=? WHERE id=?', [+body.supplier_id, ir.insertId]); } catch (e) { /* column added by accounting module */ } } }
     await C.audit(u, 'create', 'inv_move', 0, kind); return { ok: true };
   }
   if (sub === 'count' && m === 'POST') { // stock count: counted vs system -> adjustment moves
