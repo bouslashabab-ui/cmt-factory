@@ -5,7 +5,7 @@
   const TNAMES = { cash: 'نقدية', credit: 'آجلة', return: 'مرتجع', quote: 'عرض سعر', purchase: 'مشتريات' };
   const TICONS = { cash: '💵', credit: '📕', return: '↩️', quote: '📋', purchase: '🛒' };
   let META = null;
-  async function meta() { META = await GET('/sinv/meta'); return META; }
+  async function meta() { META = await GET('/sinv/meta') || {}; ['suppliers', 'clients', 'branches', 'warehouses', 'items'].forEach(k => { if (!Array.isArray(META[k])) META[k] = []; }); return META; }
   const sel = (opts, val, attrs) => { const s = h('select', attrs || {}); s.append(...opts.map(o => h('option', { value: String(o[0]), selected: String(o[0]) === String(val) ? 'selected' : null }, o[1]))); return s; };
 
   /* ---------- invoice editor (new + edit) ---------- */
