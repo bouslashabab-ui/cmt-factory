@@ -3,7 +3,8 @@
 const VZ = (() => {
   const PAL = ['#3547e0', '#f0457a', '#0e9f6e', '#9aa8ff', '#f2a93b', '#6d7bd9', '#14b8c4', '#8b5cf6'];
   const AR_M = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-  const monthLabel = (ym) => AR_M[+ym.slice(5, 7) - 1] + ' ' + ym.slice(2, 4);
+  const EN_M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthLabel = (ym) => ((window.I18N && I18N.lang === 'en') ? EN_M : AR_M)[+ym.slice(5, 7) - 1] + ' ' + ym.slice(2, 4);
   const short = (n) => { const a = Math.abs(n); return (n < 0 ? '-' : '') + (a >= 1e6 ? (a / 1e6).toFixed(1) + 'M' : a >= 1e3 ? (a / 1e3).toFixed(a >= 1e4 ? 0 : 1) + 'K' : String(Math.round(a))); };
   const wrap = (title, svg, legend) => h('div', { class: 'panel viz' }, h('div', { class: 'ph' }, title), h('div', { class: 'pb' }, h('div', { class: 'viz-svg', html: svg }), legend ? h('div', { class: 'viz-leg' }, legend.map(l => h('span', null, h('i', { style: { background: l.color } }), l.label))) : null));
   /* nice axis ceilings: round a max up to 1/2/2.5/5 x 10^k; empty data gets a clean 0-100 scale */
