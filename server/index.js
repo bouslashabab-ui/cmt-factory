@@ -20,7 +20,8 @@ const SIMPLE_USEDCOL = { models: { cuts: 'model_id' } };
 
 const DEFAULT_STAGES = [['خياطة', 1], ['كي', 2], ['فحص وتشطيب', 3], ['تعبئة', 4]];
 
-const pub = (u) => ({ id: u.id, username: u.username, name: u.name, role: u.role, perms: u.role === 'admin' ? ['*'] : (u.role === 'staff' ? ['write'] : []) });
+const THEMES = ['atelier', 'classic', 'oasis'];
+const pub = (u) => ({ id: u.id, username: u.username, name: u.name, role: u.role, theme: u.theme || null, perms: u.role === 'admin' ? ['*'] : (u.role === 'staff' ? ['write'] : []) });
 async function auth(req) {
   const h = req.headers.authorization || '';
   const p = C.verify(h.startsWith('Bearer ') ? h.slice(7) : '');
@@ -426,6 +427,12 @@ async function route(req, url, body) {
     if (String(body.password || '').length < 8) throw bad('كلمة المرور 8 أحرف على الأقل');
     await C.db().query('UPDATE users SET pass_hash=? WHERE id=?', [C.hashPw(body.password), u.id]); await C.audit(u, 'password', 'user', u.id); return { ok: true };
   }
+  if (head === 'theme' && m === 'PUT') {
+    const t = String(body.theme || '');
+    if (!THEMES.includes(t)) throw bad('سمة غير معروفة');
+    await C.db().query('UPDATE users SET theme=? WHERE id=?', [t, u.id]);
+    await C.audit(u, 'theme', 'user', u.id); return { ok: true };
+  }
   if (head === 'settings') {
     if (m === 'GET') return C.getSettings();
     needAdmin(u);
@@ -495,4 +502,8 @@ const server = http.createServer(async (req, res) => {
   });
 });
 server.listen(process.env.PORT || 8080, () => console.log('listening'));
-C.initDb().then(async (n) => { await WB.migrate(C.db()); ready = true; console.log('db ready', n); }).catch((e) => { startErr = e; console.error('db init failed', e.message); });
+C.initDb().then(async (n) => {
+  try { await C.db().query('ALTER TABLE users ADD COLUMN theme VARCHAR(40) NULL'); }
+  catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+  await WB.migrate(C.db()); ready = true; console.log('db ready', n);
+}).catch((e) => { startErr = e; console.error('db init failed', e.message); });
