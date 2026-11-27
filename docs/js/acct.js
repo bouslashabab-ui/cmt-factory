@@ -51,4 +51,10 @@ P.gl_close = async () => {
   return h('div', null, pageHead('🔒 إقفال الفترة'), note('الإقفال يرحّل أرصدة الإيرادات والمصروفات إلى الأرباح المرحّلة بقيد إقفال، ثم يقفل التعديل على كل ما قبل اليوم التالي لتاريخ الإقفال. الخطوات الصحيحة: 1) رحّل العمليات 2) سجّل قيود التسوية (إهلاك، مستحقات) 3) راجع ميزان المراجعة 4) أقفل. للمدير فقط، وللتراجع يفتح المدير القفل من الإعدادات.'),
     h('div', { class: 'panel' }, h('div', { class: 'pb' }, h('label', null, 'تاريخ نهاية الفترة ', to), ' ', MZ.user.role === 'admin' ? btn('إقفال الفترة', async () => { if (await confirmBox('إقفال الفترة حتى ' + to.value + '؟ سيُمنع التعديل على ما قبلها.')) { const x = await POST('/gl/close', { to: to.value }); toast('تم الإقفال. صافي الربح ' + fmt(x.profit)); openPage('gl_close'); } }, 'pri') : 'للمدير فقط')));
 };
-['gl_accounts', 'gl_journal', 'gl_ledger', 'gl_trial', 'gl_statements', 'gl_close'].forEach(k => { MZ.pages[k] = P[k]; });
+P.gl_subledger = async () => {
+  const d = await GET('/gl/subledger?to=' + today());
+  return h('div', null, pageHead('👥 أستاذ مساعد العملاء', btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
+    h('div', { class: 'kpis' }, kpi('رصيد حساب العملاء (الرئيسي)', fmt(d.control)), kpi('مجموع أرصدة العملاء', fmt(d.subs)), kpi('غير مرتبط بعميل', fmt(d.unassigned)), kpi('التسوية', d.reconciled ? '✔ مطابق' : '✖ فروق')),
+    table([{ t: 'الكود', k: 'code' }, { t: 'العميل', k: 'name' }, { t: 'مدين', f: x => fmt(x.debit) }, { t: 'دائن', f: x => fmt(x.credit) }, { t: 'الرصيد', f: x => fmt(x.balance) }], d.rows, {}));
+};
+['gl_accounts', 'gl_journal', 'gl_subledger', 'gl_ledger', 'gl_trial', 'gl_statements', 'gl_close'].forEach(k => { MZ.pages[k] = P[k]; });
