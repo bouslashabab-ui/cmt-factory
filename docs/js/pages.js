@@ -33,7 +33,7 @@ const formGrid = (fields, vals) => {
   const fs = fields.map(f => ({ ...mkField(f, vals && vals[f.k]), k: f.k }));
   return { el: h('div', { class: 'form-grid' }, fs.map(x => h('label', { class: 'fld' + (x.f.full ? ' full' : '') }, h('span', null, x.f.t + (x.f.req ? ' *' : '')), x.el))), fs, get: () => Object.fromEntries(fs.map(x => [x.k, x.get()])), by: (k) => fs.find(x => x.k === k) };
 };
-const note = (t) => h('div', { class: 'panel' }, h('div', { class: 'pb', style: { color: '#33502c', background: '#f1fad9' } }, t));
+const note = (t) => h('div', { class: 'panel' }, h('div', { class: 'pb', style: { color: '#2b3470', background: '#eef0ff' } }, t));
 const tag = (t, ok) => h('span', { class: 'tag' + (ok ? ' ok' : '') }, t);
 const coHead = (title, extra) => h('div', { class: 'hd' }, h('span', { class: 'plogo', html: LOGO.replace(/#fff/g, '#c26a00') }), h('div', null, h('h2', null, MZ.settings.company_name || ''), h('div', null, [MZ.settings.address, MZ.settings.phone].filter(Boolean).join(' - '))), h('div', null, h('h2', null, title), extra || ''));
 const sigRow = (a, b, c) => h('div', { class: 'sig' }, [a, b, c].map(x => h('div', null, x + ': ____________')));
