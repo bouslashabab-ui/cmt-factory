@@ -57,4 +57,17 @@ P.gl_subledger = async () => {
     h('div', { class: 'kpis' }, kpi('رصيد حساب العملاء (الرئيسي)', fmt(d.control)), kpi('مجموع أرصدة العملاء', fmt(d.subs)), kpi('غير مرتبط بعميل', fmt(d.unassigned)), kpi('التسوية', d.reconciled ? '✔ مطابق' : '✖ فروق')),
     table([{ t: 'الكود', k: 'code' }, { t: 'العميل', k: 'name' }, { t: 'مدين', f: x => fmt(x.debit) }, { t: 'دائن', f: x => fmt(x.credit) }, { t: 'الرصيد', f: x => fmt(x.balance) }], d.rows, {}));
 };
-['gl_accounts', 'gl_journal', 'gl_subledger', 'gl_ledger', 'gl_trial', 'gl_statements', 'gl_close'].forEach(k => { MZ.pages[k] = P[k]; });
+P.gl_suppliers = async () => {
+  const rows = await GET('/gl/suppliers');
+  const add = () => { const g = formGrid([{ k: 'name', t: 'اسم المورد', req: 1 }, { k: 'code', t: 'الكود (اختياري)' }, { k: 'phone', t: 'الهاتف' }, { k: 'notes', t: 'ملاحظات', full: 1 }]); modal('مورد جديد', g.el, [{ t: 'حفظ', kind: 'pri', fn: async (c) => { await POST('/gl/suppliers', g.get()); c(); toast('تمت الإضافة'); openPage('gl_suppliers'); } }]); };
+  const pay = () => { if (!rows.length) { toast('أضف مورّدًا أولًا', 'err'); return; } const g = formGrid([{ k: 'date', t: 'التاريخ', type: 'date', def: today() }, { k: 'supplier_id', t: 'المورد', type: 'select', options: rows.map(r => ({ v: r.id, t: r.name })) }, { k: 'amount', t: 'المبلغ', type: 'number' }, { k: 'method', t: 'من', type: 'select', options: [{ v: 'cash', t: 'الصندوق' }, { v: 'bank', t: 'البنك' }] }, { k: 'notes', t: 'ملاحظات', full: 1 }]); modal('سداد مورد', g.el, [{ t: 'ترحيل السداد', kind: 'pri', fn: async (c) => { await POST('/gl/suppay', g.get()); c(); toast('تم السداد وترحيله'); openPage('gl_supledger'); } }]); };
+  return h('div', null, pageHead('🏭 الموردون', canW() ? btn('➕ مورد', add, 'pri') : null, canW() ? btn('💸 سداد مورد', pay) : null), note('الموردون يُربطون بإذن الإضافة (الوارد) في المخزون، ويظهر رصيدهم في أستاذ مساعد الموردين بعد ترحيل القيود.'),
+    table([{ t: 'الكود', k: 'code' }, { t: 'المورد', k: 'name' }, { t: 'الهاتف', k: 'phone' }, { t: 'ملاحظات', k: 'notes' }], rows));
+};
+P.gl_supledger = async () => {
+  const d = await GET('/gl/supledger?to=' + today());
+  return h('div', null, pageHead('🏭 أستاذ مساعد الموردين', btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
+    h('div', { class: 'kpis' }, kpi('رصيد الموردين (الرئيسي)', fmt(d.control)), kpi('مجموع أرصدة الموردين', fmt(d.subs)), kpi('غير مرتبط بمورد', fmt(d.unassigned)), kpi('التسوية', d.reconciled ? '✔ مطابق' : '✖ فروق')),
+    table([{ t: 'الكود', k: 'code' }, { t: 'المورد', k: 'name' }, { t: 'سداد (مدين)', f: x => fmt(x.debit) }, { t: 'مشتريات (دائن)', f: x => fmt(x.credit) }, { t: 'المستحق له', f: x => fmt(x.balance) }], d.rows, {}));
+};
+['gl_accounts', 'gl_journal', 'gl_subledger', 'gl_suppliers', 'gl_supledger', 'gl_ledger', 'gl_trial', 'gl_statements', 'gl_close'].forEach(k => { MZ.pages[k] = P[k]; });
