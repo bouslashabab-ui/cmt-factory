@@ -136,7 +136,7 @@ function modal(title, body, buttons, opts = {}) {
 function confirmBox(msg) {
   return new Promise(res => {
     const m = modal('تأكيد', h('p', { class: 'confirm-msg' }, msg), [
-      { t: 'نعم', kind: 'pri', fn: (c) => { c(); res(true); } }, { t: 'إلغاء', fn: (c) => { c(); res(false); } }], { onclose: () => res(false) });
+      { t: 'نعم', kind: 'pri', fn: (c) => { res(true); c(); } }, { t: 'إلغاء', fn: (c) => { res(false); c(); } }], { onclose: () => res(false) });
   });
 }
 
