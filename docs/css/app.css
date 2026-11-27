@@ -230,6 +230,11 @@ button:active:not(:disabled){transform:scale(.97)}
 .sclock .ck-t{white-space:nowrap}
 .sclock .ck-d{width:max-content;max-width:100%;margin-inline:auto}
 .sclock .ck-w,.sclock .ck-r{white-space:nowrap}
+/* bigger login card (all designs, desktop layout) */
+@media(min-width:901px){
+#app .land{grid-template-columns:1fr 1.05fr}
+#app .land .lg-card{zoom:1.15}
+}
 .login-clock .ck-t{color:var(--lime);font-size:22px}.login-clock .ck-d{color:#d6dbf0;font-size:12px}
 .copy{font-size:12px;color:var(--mut);letter-spacing:.3px;font-family:Inter,Segoe UI,system-ui,sans-serif;direction:ltr;unicode-bidi:isolate}
 .land-f .copy{font-weight:700;color:var(--teal)}
