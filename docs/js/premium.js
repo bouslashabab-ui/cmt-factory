@@ -2,12 +2,19 @@
 /* Samy Platform: live Cairo clock, ownership footer, count-up numbers, PWA registration, offline banner */
 (function () {
   const COPY = '© ' + new Date().getFullYear() + ' Ahmed Samy - Designed & Programmed by Ahmed Samy';
-  const fmtD = new Intl.DateTimeFormat('ar-EG', { timeZone: 'Africa/Cairo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const fmtT = new Intl.DateTimeFormat('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-  const fmtP = new Intl.DateTimeFormat('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-  const fmtW = new Intl.DateTimeFormat('ar-EG', { timeZone: 'Africa/Cairo', weekday: 'long' });
-  const fmtH = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { timeZone: 'Africa/Cairo', year: 'numeric', month: 'long', day: 'numeric' });
-  const fmtR = new Intl.DateTimeFormat('ar-EG', { timeZone: 'Africa/Cairo', year: 'numeric', month: 'long', day: 'numeric' });
+  let fmtD, fmtT, fmtP, fmtW, fmtH, fmtR;
+  const buildFmt = () => {
+    const L = (window.I18N && I18N.lang === 'en') ? 'en-GB' : 'ar-EG';
+    fmtD = new Intl.DateTimeFormat(L, { timeZone: 'Africa/Cairo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    fmtT = new Intl.DateTimeFormat(L, { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    fmtP = new Intl.DateTimeFormat(L, { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    fmtW = new Intl.DateTimeFormat(L, { timeZone: 'Africa/Cairo', weekday: 'long' });
+    fmtH = new Intl.DateTimeFormat(L === 'en-GB' ? 'en-SA-u-ca-islamic-umalqura' : 'ar-SA-u-ca-islamic-umalqura', { timeZone: 'Africa/Cairo', year: 'numeric', month: 'long', day: 'numeric' });
+    fmtR = new Intl.DateTimeFormat(L, { timeZone: 'Africa/Cairo', year: 'numeric', month: 'long', day: 'numeric' });
+    document.querySelectorAll('.sclock').forEach(e => { e._ck = null; });
+  };
+  buildFmt();
+  window.CLOCK_REBUILD = buildFmt;
   const setSlot = (slot, ch) => { if (slot.dataset.c === ch) return; const first = slot.dataset.c === undefined; slot.dataset.c = ch; slot.innerHTML = ''; const sp = document.createElement('span'); sp.className = first ? 'cv' : 'cv roll'; sp.textContent = ch; slot.append(sp); };
   const tick = () => {
     const n = new Date(); const ps = fmtP.formatToParts(n); const chars = []; let sec = false;
