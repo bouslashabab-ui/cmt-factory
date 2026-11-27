@@ -81,5 +81,91 @@
       kpiBox, footBox, tblBox, statBox, histBox);
     await load(); await loadHist(); return root;
   };
+  /* ---------- fixed assets: register + straight-line monthly depreciation ---------- */
+  P2.assets = async () => {
+    const root = h('div');
+    let list = await GET('/gl2/assets');
+    const kpiBox = h('div', { class: 'kpis' }), chartBox = h('div'), tblBox = h('div'), formBox = h('div'), runBox = h('div'), histBox = h('div');
+    const renderList = () => {
+      const totC = r2c(list.reduce((s, a) => s + a.cost, 0)), totA = r2c(list.reduce((s, a) => s + a.acc_dep, 0)), totN = r2c(list.reduce((s, a) => s + a.nbv, 0));
+      kpiBox.innerHTML = '';
+      kpiBox.append(VZ.kpiD('عدد الأصول', list.length, undefined, undefined, false), VZ.kpiD('إجمالي التكلفة', totC), VZ.kpiD('مجمع الإهلاك', totA), VZ.kpiD('صافي القيمة الدفترية', totN));
+      chartBox.innerHTML = '';
+      const byCat = {}; list.forEach(a => { const k = a.category || 'بدون فئة'; byCat[k] = r2c((byCat[k] || 0) + a.cost); });
+      if (list.length) chartBox.append(
+        VZ.donut('توزيع التكلفة حسب الفئة', Object.keys(byCat).map(k => ({ l: k, v: byCat[k] }))),
+        VZ.hbars('أعلى الأصول قيمة دفترية', list.map(a => ({ l: a.name.slice(0, 30), v: a.nbv })).sort((x, y) => y.v - x.v).slice(0, 6)));
+      tblBox.innerHTML = '';
+      tblBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'سجل الأصول الثابتة'), table([
+        { t: 'الأصل', f: a => a.name }, { t: 'الفئة', f: a => a.category || '—' }, { t: 'تاريخ الشراء', f: a => a.purchase_date || '' },
+        { t: 'التكلفة', cls: 'num', f: a => fmt(a.cost) }, { t: 'الخردة', cls: 'num', f: a => fmt(a.salvage) },
+        { t: 'العمر (سنة)', cls: 'num', f: a => a.life_years }, { t: 'قسط شهري', cls: 'num', f: a => fmt(a.monthly) },
+        { t: 'مجمع الإهلاك', cls: 'num', f: a => fmt(a.acc_dep) }, { t: 'صافي القيمة', cls: 'num', f: a => fmt(a.nbv) },
+        { t: 'الحالة', f: a => a.fully_depreciated ? h('span', { class: 'okb' }, 'مُهلك بالكامل') : h('span', { class: 'okb ok' }, 'نشط') }
+      ], list, { empty: 'لا توجد أصول مسجلة بعد — أضف أول أصل من النموذج أدناه' })));
+    };
+    if (canW()) {
+      const nm = h('input', { type: 'text', placeholder: 'مثال: ماكينة قص أوتوماتيك' });
+      const cat = h('input', { type: 'text', placeholder: 'مثال: ماكينات ومعدات' });
+      const pd = h('input', { type: 'date', value: today() });
+      const cost = h('input', { type: 'number', step: 'any', placeholder: 'تكلفة الشراء' });
+      const salv = h('input', { type: 'number', step: 'any', value: 0 });
+      const life = h('input', { type: 'number', step: 'any', value: 10 });
+      const pay = h('select', { class: 'inp' },
+        h('option', { value: '' }, 'بدون قيد — مسجّل سابقًا في الدفاتر'),
+        h('option', { value: '1100' }, '1100 الصندوق (نقدًا)'),
+        h('option', { value: '1110' }, '1110 البنك (تحويل بنكي)'),
+        h('option', { value: '2100' }, '2100 الموردون (على الحساب)'));
+      const add = guard(async () => {
+        if (!(await confirmBox('تسجيل الأصل "' + nm.value + '" بتكلفة ' + fmt(+cost.value) + '؟'))) return;
+        const r = await POST('/gl2/assets', { name: nm.value, category: cat.value, purchase_date: pd.value, cost: +cost.value, salvage: +salv.value, life_years: +life.value, pay_account: pay.value || null });
+        toast(r.entry ? 'سُجّل الأصل وقيد الشراء رقم ' + r.entry.no + ' ✔' : 'سُجّل الأصل ✔');
+        nm.value = ''; cat.value = ''; cost.value = ''; salv.value = 0; life.value = 10;
+        list = await GET('/gl2/assets'); renderList();
+      });
+      formBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'إضافة أصل ثابت'), h('div', { class: 'filters' },
+        h('label', null, h('span', null, 'اسم الأصل'), nm), h('label', null, h('span', null, 'الفئة'), cat),
+        h('label', null, h('span', null, 'تاريخ الشراء'), pd), h('label', null, h('span', null, 'التكلفة'), cost),
+        h('label', null, h('span', null, 'قيمة الخردة'), salv), h('label', null, h('span', null, 'العمر الإنتاجي (سنوات)'), life),
+        h('label', null, h('span', null, 'طريقة السداد / القيد'), pay), btn('➕ تسجيل الأصل', add, 'pri'))));
+    }
+    const moIn = h('input', { type: 'month', value: today().slice(0, 7) });
+    const pvBox = h('div'), okBox = h('div');
+    let pv = null;
+    const loadHist = guard(async () => {
+      const rs = await GET('/gl2/depruns'); histBox.innerHTML = '';
+      histBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'سجل الإهلاكات المرحّلة'), table([
+        { t: 'الشهر', f: r => VZ.monthLabel(r.month) }, { t: 'الأصل', f: r => r.asset_name }, { t: 'القسط', cls: 'num', f: r => fmt(r.amount) },
+        { t: 'قيد', cls: 'num', f: r => r.entry_no || '' }, { t: 'وقت الترحيل', k: 'created_at' }
+      ], rs, { empty: 'لا توجد إهلاكات مرحّلة بعد' })));
+    });
+    const run = guard(async () => {
+      if (!pv || !(await confirmBox('ترحيل إهلاك شهر ' + moIn.value + ' بإجمالي ' + fmt(pv.due_total) + '؟ سيُنشأ قيد تسوية لكل أصل.'))) return;
+      const r = await POST('/gl2/depreciation', { month: moIn.value });
+      toast(r.posted ? 'رُحّل إهلاك ' + r.posted + ' أصل بإجمالي ' + fmt(r.total) + ' ✔' : 'لا يوجد إهلاك مستحق لهذا الشهر');
+      list = await GET('/gl2/assets'); renderList(); await preview(); await loadHist();
+    });
+    const preview = guard(async () => {
+      pv = await GET('/gl2/depreciation?month=' + moIn.value);
+      pvBox.innerHTML = ''; okBox.innerHTML = '';
+      pvBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'إهلاك شهر ' + VZ.monthLabel(pv.month) + ' — القيد بتاريخ ' + pv.month_end), table([
+        { t: 'الأصل', f: i => i.name }, { t: 'الفئة', f: i => i.category || '—' }, { t: 'مجمع سابق', cls: 'num', f: i => fmt(i.acc_dep) },
+        { t: 'قسط هذا الشهر', cls: 'num', f: i => i.posted ? '' : fmt(i.due) },
+        { t: 'الحالة', f: i => i.posted ? h('span', { class: 'okb ok' }, 'مرحّل هذا الشهر') : (i.due > 0 ? h('span', { class: 'okb' }, 'مستحق') : h('span', { class: 'okb' }, 'مُهلك بالكامل')) }
+      ], pv.items, { empty: 'لا توجد أصول نشطة مستحقة لهذا الشهر' })));
+      const pending = pv.items.filter(i => !i.posted && i.due > 0);
+      okBox.append(h('div', { class: 'panel' }, h('div', { class: 'pb' },
+        pv.future ? h('span', { class: 'okb bad' }, '✖ لا يمكن ترحيل إهلاك شهر في المستقبل')
+          : pending.length ? h('span', null, h('span', { class: 'okb ok' }, 'إجمالي مستحق الترحيل: ' + fmt(pv.due_total)), ' ', canW() ? btn('✅ ترحيل إهلاك ' + VZ.monthLabel(pv.month), run, 'pri') : null)
+            : h('span', { class: 'okb ok' }, '✔ لا يوجد إهلاك مستحق لهذا الشهر'))));
+    });
+    root.append(pageHead('🏗️ الأصول الثابتة والإهلاك', btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
+      note('سجّل أصول المصنع الثابتة (ماكينات، معدات، سيارات) ودع النظام يحسب إهلاك القسط الثابت شهريًا ويرحّله بقيد تسوية (مدين 5600 مصروف إهلاك / دائن 1590 مجمع الإهلاك). يبدأ الإهلاك من شهر الشراء ويتوقف عند الوصول لقيمة الخردة. عند إضافة أصل يمكنك إنشاء قيد الشراء تلقائيًا أو تسجيله دون قيد إن كان مسجلًا سابقًا.'),
+      kpiBox, chartBox, tblBox, formBox,
+      h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'ترحيل الإهلاك الشهري'), h('div', { class: 'filters' }, h('label', null, h('span', null, 'الشهر'), moIn), btn('عرض المستحق', preview, 'pri')), okBox, pvBox),
+      histBox);
+    renderList(); await loadHist();
+    return root;
+  };
   Object.assign(MZ.pages, P2);
 })();
