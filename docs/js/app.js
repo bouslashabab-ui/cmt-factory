@@ -142,17 +142,23 @@ function loginScreen() {
   const user = h('input', { id: 'u', autocomplete: 'username', placeholder: 'اسم المستخدم' }), pass = h('input', { id: 'p', type: 'password', autocomplete: 'current-password', placeholder: '••••••••' });
   const company = h('input', { id: 'c', placeholder: 'اسم المصنع' });
   const go = h('button', { class: 'go', type: 'submit', disabled: true }, 'دخول النظام');
+  const eye = h('button', { type: 'button', class: 'eye', title: 'إظهار/إخفاء كلمة المرور', onclick: () => { const s = pass.type === 'password'; pass.type = s ? 'text' : 'password'; eye.textContent = s ? '🙈' : '👁'; pass.focus(); } }, '👁');
+  const caps = h('div', { class: 'caps-hint', style: { display: 'none' } }, '⚠ تنبيه: زر Caps Lock مفعّل');
+  pass.addEventListener('keyup', (e) => { try { caps.style.display = (e.getModifierState && e.getModifierState('CapsLock')) ? 'block' : 'none'; } catch (x) {} });
+  pass.addEventListener('blur', () => { caps.style.display = 'none'; });
+  const userFld = h('div', { class: 'fld' }, h('span', { class: 'fld-i' }, '👤'), user);
+  const passFld = h('div', { class: 'fld' }, h('span', { class: 'fld-i' }, '🔒'), pass, eye);
   const title = h('h2', null, 'دخول النظام'), sub = h('div', { class: 'sub' }, 'سجّل الدخول للمتابعة');
   const compBox = h('div', { style: { display: 'none' } }, h('label', null, 'اسم المصنع'), company);
   let setupMode = false;
   const form = h('form', { class: 'lg-card', onsubmit: async (e) => {
-    e.preventDefault(); go.disabled = true; msg.className = 'lg-msg info'; msg.textContent = 'جاري التحقق...';
+    e.preventDefault(); go.disabled = true; go.classList.add('busy'); msg.className = 'lg-msg info'; msg.textContent = 'جاري التحقق...';
     try {
       if (setupMode) await POST('/setup', { username: user.value, password: pass.value, company: company.value });
       const r = await POST('/login', { username: user.value, password: pass.value });
-      MZ.token = r.token; sessionStorage.setItem('cmt_tok', r.token); SND.play('login'); await boot();
-    } catch (err) { msg.className = 'lg-msg'; msg.textContent = err.message; go.disabled = false; }
-  } }, title, sub, compBox, h('label', { for: 'u' }, 'اسم المستخدم'), user, h('label', { for: 'p' }, 'كلمة المرور'), pass, go, msg, h('div', { class: 'lg-foot' }, APP_NAME + ' © التصنيع للغير'));
+      go.classList.remove('busy'); go.classList.add('done'); MZ.token = r.token; sessionStorage.setItem('cmt_tok', r.token); SND.play('login'); await boot();
+    } catch (err) { go.classList.remove('busy'); msg.className = 'lg-msg'; msg.textContent = err.message; go.disabled = false; form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); }
+  } }, title, sub, compBox, h('label', { for: 'u' }, 'اسم المستخدم'), userFld, h('label', { for: 'p' }, 'كلمة المرور'), passFld, caps, go, msg, h('div', { class: 'lg-foot' }, APP_NAME + ' © التصنيع للغير'));
   const ART = '<svg viewBox="0 0 520 300" fill="none"><g class="float"><rect x="20" y="170" width="190" height="64" rx="32" fill="#3547e0"/><ellipse cx="52" cy="202" rx="22" ry="22" fill="#0f1437"/><ellipse cx="52" cy="202" rx="9" ry="9" fill="#f2f4fb"/><rect x="40" y="120" width="190" height="60" rx="30" fill="#9aa8ff" stroke="#0f1437" stroke-width="2"/><ellipse cx="72" cy="150" rx="20" ry="20" fill="#0f1437"/><ellipse cx="72" cy="150" rx="8" ry="8" fill="#f2f4fb"/></g><path class="draw" d="M300 60l40-22 30 14 30-14 40 22-22 36-22-10v118h-92V86l-22 10z" fill="#fff" stroke="#0f1437" stroke-width="3" stroke-linejoin="round"/><path class="cut" d="M262 20C300 140 420 150 500 270" stroke="#f0457a" stroke-width="3" stroke-linecap="round"/><circle cx="262" cy="20" r="6" fill="#f0457a"/><path d="M330 120h70M330 140h70M330 160h50" stroke="#9aa8ff" stroke-width="5" stroke-linecap="round"/><g transform="translate(250 262)"><path d="M0 0h260" stroke="#0f1437" stroke-width="2" stroke-dasharray="3 6"/><text x="0" y="-8" font-size="12" fill="#7a82a6" font-family="Tahoma">cut · sew · deliver</text></g></svg>';
   app.append(h('div', { class: 'land' },
     h('div', { class: 'land-l' }, h('span', { class: 'tagline' }, 'نظام التصنيع للغير'),
@@ -164,10 +170,18 @@ function loginScreen() {
     h('div', { class: 'land-f' }, h('span', null, APP_NAME), h('span', null, 'القماش ملك العميل، والمصنع يقدّم الخدمة'))));
   const ping = async (n = 0) => {
     try {
-      const st = await GET('/status'); go.disabled = false; msg.textContent = '';
+      const st = await GET('/status'); go.disabled = false; go.classList.remove('busy'); msg.textContent = '';
       if (st.setup_needed) { setupMode = true; title.textContent = 'إعداد النظام لأول مرة'; sub.textContent = 'أنشئ حساب مدير النظام'; compBox.style.display = 'block'; go.textContent = 'إنشاء الحساب والدخول'; }
     } catch (e) { msg.textContent = n < 2 ? 'جاري الاتصال بالخادم...' : 'الخادم يستيقظ، قد يستغرق ذلك حتى دقيقة...'; setTimeout(() => ping(n + 1), 4000); }
   };
+  if (window.matchMedia && matchMedia('(pointer:fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const card = form;
+    card.addEventListener('mousemove', (e) => {
+      const r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+      card.style.transform = 'perspective(900px) rotateY(' + (x * -4) + 'deg) rotateX(' + (y * 4) + 'deg) translateY(-2px)';
+    });
+    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+  }
   ping(); user.focus();
 }
 boot();
