@@ -163,7 +163,7 @@ P.attendance = async () => {
 P.payroll = async () => {
   const root = h('div'); let ym = MZ.ym || thisYm();
   const render = async () => {
-    MZ.ym = ym; const d = await GET('/payroll?ym=' + ym); root.innerHTML = ''; const rows = d.rows; const s = (k) => rows.reduce((a, r) => a + r[k], 0);
+    MZ.ym = ym; const d = await GET('/payroll?ym=' + ym) || {}; root.innerHTML = ''; const rows = Array.isArray(d.rows) ? d.rows : []; const s = (k) => rows.reduce((a, r) => a + r[k], 0);
     const cols = [{ t: 'كود', k: 'code' }, { t: 'اسم الموظف', k: 'name' }, { t: 'الوظيفة', k: 'job' }, { t: 'الراتب الأساسي', k: 'salary', num: 1 }, { t: 'أيام الحضور', k: 'present' }, { t: 'الأجر اليومي', k: 'daily', num: 1 }, { t: 'الساعات الإضافية', k: 'ot_hours' }, { t: 'عدد الجمع', k: 'fridays' }, { t: 'قيمة الجمع', k: 'friday_value', num: 1 }, { t: 'قيمة الإضافي', k: 'ot_value', num: 1 }, { t: 'إجمالي المستحق', k: 'gross', num: 1 }, { t: 'السلف', k: 'advances', num: 1 }, { t: 'أيام الغياب', k: 'absent' }, { t: 'الخصم (إنتاج - استئذان)', k: 'deduction', num: 1 }, { t: 'إجمالي الاستقطاعات', k: 'total_deductions', num: 1 }, { t: 'صافي الراتب', f: r => h('b', null, fmt(r.net)), csv: r => r.net }];
     const edit = (r) => { const f = formGrid([{ k: 'ot_hours', t: 'عدد الساعات الإضافية', type: 'number' }, { k: 'fridays', t: 'عدد الجمع (أيام الجمعة المشتغلة)', type: 'number' }, { k: 'advances', t: 'السلف', type: 'number' }, { k: 'deduction', t: 'الخصم (إنتاج - استئذان)', type: 'number' }], r);
       modal('مدخلات مرتب: ' + r.name, f.el, [{ t: 'حفظ', kind: 'pri', fn: async (c) => { await POST('/payroll', { ...f.get(), ym, emp_id: r.emp_id }); c(); toast('تم الحفظ'); render(); } }]); };
@@ -172,7 +172,7 @@ P.payroll = async () => {
     root.append(pageHead('المرتبات', btn('🖨 طباعة', () => printEl('كشف المرتبات', doc)), btn('🧾 كل القسائم', () => printPayslips(rows, ym)), btn('⬇ تصدير Excel (CSV)', () => download('مرتبات ' + ym + '.csv', csvOf(cols, rows)))),
       h('div', { class: 'filters' }, ymBar(ym, v => { ym = v; render(); })),
       h('div', { class: 'kpis' }, kpi('إجمالي المستحق', fmt(s('gross'))), kpi('إجمالي الاستقطاعات', fmt(s('total_deductions'))), kpi('صافي المرتبات', fmt(s('net')))),
-      note('الأجر اليومي = الراتب ÷ ' + d.params.days_in_month + ' | قيمة الساعة = اليومي ÷ ' + d.params.hours_per_day + ' | الإضافي = ساعات × قيمة الساعة × ' + d.params.ot_mult + ' | الجمعة = اليومي × عدد الجمع × ' + d.params.friday_mult + ' | الصافي = أيام الحضور × اليومي + الجمع + الإضافي - (السلف + الخصم). الغياب لا يُخصم مرة ثانية لأن الراتب محسوب على أيام الحضور فقط.'),
+      note('الأجر اليومي = الراتب ÷ ' + (d.params || {}).days_in_month + ' | قيمة الساعة = اليومي ÷ ' + (d.params || {}).hours_per_day + ' | الإضافي = ساعات × قيمة الساعة × ' + (d.params || {}).ot_mult + ' | الجمعة = اليومي × عدد الجمع × ' + (d.params || {}).friday_mult + ' | الصافي = أيام الحضور × اليومي + الجمع + الإضافي - (السلف + الخصم). الغياب لا يُخصم مرة ثانية لأن الراتب محسوب على أيام الحضور فقط.'),
       table(full, rows, { empty: 'أضف الموظفين أولاً', foot: [null, 'الإجمالي', null, fmt(s('salary')), null, null, null, null, fmt(s('friday_value')), fmt(s('ot_value')), fmt(s('gross')), fmt(s('advances')), null, fmt(s('deduction')), fmt(s('total_deductions')), fmt(s('net')), null] }));
   };
   await render(); return root;
