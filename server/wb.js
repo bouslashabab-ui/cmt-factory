@@ -255,6 +255,7 @@ async function wbApi(head, req, u, id, body, q, parts) {
   { const rg = await require('./acct').api(head, req, u, id, body, q, parts); if (rg !== undefined) return rg; }
   { const r3 = await require('./acct2').api(head, req, u, id, body, q, parts); if (r3 !== undefined) return r3; }
   { const ri = await require('./inv').api(head, req, u, id, body, q, parts); if (ri !== undefined) return ri; }
+  { const rs = await require('./sinv').api(head, req, u, id, body, q, parts); if (rs !== undefined) return rs; }
   if (head === 'store') return storeApi(req, u, id, body, q, parts[2] === 'transfer' ? 'transfer' : (parts[1] === 'transfer' ? 'transfer' : null));
   if (head === 'store-transfer') return storeApi(req, u, id, body, q, 'transfer');
   if (head === 'orders') return ordApi(req, u, id, body, q);
