@@ -321,5 +321,116 @@
     await refreshKpis(); await loadPayrollHist(); await loadPrepaids(); await loadAmortHist(); await loadAccruals(); await showPayroll();
     return root;
   };
+
+  /* ---------- VAT center: taxable docs, periodic return, settlement ---------- */
+  P2.vat = async () => {
+    const root = h('div');
+    const accs = await GET('/gl/accounts');
+    const revOpts = accs.filter(a => a.type === 'revenue').map(a => [a.code, a.name]);
+    const expOpts = accs.filter(a => a.type === 'expense' || a.type === 'asset').map(a => [a.code, a.name]);
+    const kindSel = h('select', { class: 'inp' }, h('option', { value: 'sale' }, 'بيع (ضريبة مخرجات)'), h('option', { value: 'purchase' }, 'شراء (ضريبة مدخلات)'));
+    const dIn = h('input', { type: 'date', value: today() });
+    const partyIn = h('input', { type: 'text', placeholder: 'اسم العميل / المورد' });
+    const amtIn = h('input', { type: 'number', step: 'any', placeholder: 'المبلغ' });
+    const rateIn = h('input', { type: 'number', step: 'any', value: 14, min: 0, max: 100, style: { width: '90px' } });
+    const incCb = h('input', { type: 'checkbox', class: 'chk' });
+    const netSel = selOf(revOpts), settleSel = h('select', { class: 'inp' });
+    const SETTLE = { sale: [['1200', 'آجل - العملاء (مدينون)'], ['1100', 'الصندوق (نقدًا)'], ['1110', 'البنك (تحويل بنكي)']], purchase: [['2100', 'آجل - الموردون (دائنون)'], ['1100', 'الصندوق (نقدًا)'], ['1110', 'البنك (تحويل بنكي)']] };
+    const preview = h('div', { class: 'panel' }, h('div', { class: 'pb' }, h('small', { style: { color: 'var(--mut)' } }, 'أدخل المبلغ لمعاينة القيد قبل التسجيل')));
+    const calc = () => {
+      const amount = +amtIn.value || 0, rate = +rateIn.value || 0, inc = incCb.checked;
+      const base = r2c(inc ? amount / (1 + rate / 100) : amount), vat = r2c(inc ? amount - base : base * rate / 100), total = r2c(base + vat);
+      return { base, vat, total, ok: amount > 0 };
+    };
+    const updPreview = () => {
+      const c = calc(); preview.innerHTML = '';
+      if (!c.ok) { preview.append(h('div', { class: 'pb' }, h('small', { style: { color: 'var(--mut)' } }, 'أدخل المبلغ لمعاينة القيد قبل التسجيل'))); return; }
+      const sale = kindSel.value === 'sale';
+      preview.append(h('div', { class: 'pb' }, table([{ t: 'البند', f: x => x[0] }, { t: 'مدين', cls: 'num', f: x => x[1] ? fmt(x[1]) : '' }, { t: 'دائن', cls: 'num', f: x => x[2] ? fmt(x[2]) : '' }],
+        sale ? [['التحصيل (' + settleSel.options[settleSel.selectedIndex].text + ')', c.total, 0], ['الإيراد (صافي)', 0, c.base], ['ض.ق.م - مخرجات', 0, c.vat]]
+          : [[netSel.options[netSel.selectedIndex] ? netSel.options[netSel.selectedIndex].text : 'المصروف', c.base, 0], ['ض.ق.م - مدخلات', c.vat, 0], ['السداد (' + settleSel.options[settleSel.selectedIndex].text + ')', 0, c.total]],
+        { foot: ['الإجمالي', fmt(c.total), fmt(c.total)] })));
+    };
+    const syncKind = () => {
+      const sale = kindSel.value === 'sale';
+      netSel.innerHTML = ''; (sale ? revOpts : expOpts).forEach(o => netSel.append(h('option', { value: o[0] }, o[0] + ' ' + o[1])));
+      settleSel.innerHTML = ''; SETTLE[kindSel.value].forEach(o => settleSel.append(h('option', { value: o[0] }, o[1])));
+      updPreview();
+    };
+    kindSel.addEventListener('change', syncKind);
+    [amtIn, rateIn].forEach(el => el.addEventListener('input', updPreview));
+    incCb.addEventListener('change', updPreview);
+    netSel.addEventListener('change', updPreview); settleSel.addEventListener('change', updPreview);
+    syncKind();
+    const kpiBox = h('div', { class: 'kpis' });
+    const rf = h('input', { type: 'date' }), rt = h('input', { type: 'date', value: today() });
+    rf.value = today().slice(0, 4) + '-01-01';
+    const repBox = h('div'), setBox = h('div'), histBox = h('div'), docsBox = h('div');
+    let rep = null;
+    const paySel = selOf(PAY_OPTS);
+    const refreshKpis = async () => {
+      const r = await GET('/gl2/vat-report');
+      kpiBox.innerHTML = '';
+      kpiBox.append(VZ.kpiD('ض. مخرجات مستحقة (رصيد)', r.balance_output), VZ.kpiD('ض. مدخلات قابلة للخصم (رصيد)', r.balance_input), VZ.kpiD('صافي المستحق للمصلحة', r.net_due, undefined, r.net_due <= 0));
+      return r;
+    };
+    const settleNow = guard(async () => {
+      if (!rep) return;
+      if (!(await confirmBox('تسوية ضريبة حتى ' + rt.value + ': مخرجات ' + fmt(rep.balance_output) + '، يُخصم منها مدخلات ' + fmt(Math.min(rep.balance_output, rep.balance_input)) + '، ويُسدد صافي ' + fmt(rep.net_due) + '؟'))) return;
+      const r = await POST('/gl2/vat-settle', { date: rt.value, pay_account: paySel.value });
+      toast('سُويت الضريبة بقيد رقم ' + r.entry.no + ' — سُدد ' + fmt(r.paid) + ' ✔');
+      await loadReport(); await refreshKpis(); await loadHist(); await loadDocs();
+    });
+    const loadReport = guard(async () => {
+      rep = await GET('/gl2/vat-report?from=' + rf.value + '&to=' + rt.value);
+      repBox.innerHTML = ''; setBox.innerHTML = '';
+      repBox.append(h('div', { class: 'kpis' },
+        VZ.kpiD('مبيعات الفترة (صافي)', rep.sales_base), VZ.kpiD('ضريبة المخرجات', rep.sales_vat),
+        VZ.kpiD('مشتريات الفترة (صافي)', rep.purch_base), VZ.kpiD('ضريبة المدخلات', rep.purch_vat)));
+      setBox.append(h('div', { class: 'panel' }, h('div', { class: 'pb' },
+        h('span', null, 'أرصدة الضريبة حتى ' + rt.value + ': مخرجات ', h('b', null, fmt(rep.balance_output)), ' — مدخلات ', h('b', null, fmt(rep.balance_input)), ' — '),
+        rep.net_due > 0 ? h('span', { class: 'okb bad' }, 'صافي مستحق للمصلحة ' + fmt(rep.net_due)) : h('span', { class: 'okb ok' }, rep.balance_output > 0 ? 'المدخلات تغطي المخرجات بالكامل' : (rep.carry_forward > 0 ? 'لا يوجد مستحق — رصيد مدخلات يُرحَّل ' + fmt(rep.carry_forward) : 'لا يوجد مستحق')),
+        ' ', rep.balance_output > 0 && canW() ? h('label', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, h('span', null, 'السداد من'), paySel) : null,
+        ' ', rep.balance_output > 0 && canW() ? btn('🧾 تسوية وسداد الضريبة', settleNow, 'pri') : null)));
+    });
+    const loadHist = guard(async () => {
+      const rs = await GET('/gl2/vat-settlements'); histBox.innerHTML = '';
+      histBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'سجل التسويات'), table([
+        { t: 'التاريخ', k: 'date' }, { t: 'المخرجات', cls: 'num', f: r => fmt(+r.output) }, { t: 'المدخلات المخصومة', cls: 'num', f: r => fmt(+r.input_used) },
+        { t: 'المسدد نقدًا', cls: 'num', f: r => fmt(+r.paid) }, { t: 'قيد', cls: 'num', f: r => r.entry_no || '' }
+      ], rs, { empty: 'لا توجد تسويات بعد' })));
+    });
+    const loadDocs = guard(async () => {
+      const rs = await GET('/gl2/vat-docs?from=' + rf.value + '&to=' + rt.value); docsBox.innerHTML = '';
+      docsBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'سجل المستندات الضريبية'), table([
+        { t: 'التاريخ', k: 'date' }, { t: 'النوع', f: r => r.kind === 'sale' ? h('span', { class: 'okb ok' }, 'بيع') : h('span', { class: 'okb' }, 'شراء') },
+        { t: 'الطرف', f: r => r.party || '' }, { t: 'الصافي', cls: 'num', f: r => fmt(+r.base) }, { t: 'الضريبة', cls: 'num', f: r => fmt(+r.vat) },
+        { t: 'الإجمالي', cls: 'num', f: r => fmt(+r.total) }, { t: 'الحساب', f: r => r.account_name }, { t: 'السداد', f: r => r.settle_name }, { t: 'قيد', cls: 'num', f: r => r.entry_no || '' }
+      ], rs, { empty: 'لا توجد مستندات في الفترة' })));
+    });
+    const addDoc = guard(async () => {
+      const c = calc(); if (!c.ok) throw new Error('أدخل مبلغًا صحيحًا');
+      const r = await POST('/gl2/vat-docs', { kind: kindSel.value, date: dIn.value, party: partyIn.value, amount: +amtIn.value, rate: +rateIn.value, vat_included: incCb.checked, net_account: netSel.value, settle_account: settleSel.value });
+      toast('سُجل المستند بقيد رقم ' + r.entry.no + ' — ضريبة ' + fmt(r.vat) + ' ✔');
+      partyIn.value = ''; amtIn.value = ''; updPreview();
+      await loadDocs(); await loadReport(); await refreshKpis();
+    });
+    root.append(
+      pageHead('🧾 ضريبة القيمة المضافة', btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
+      h('div', { class: 'panel' }, h('div', { class: 'pb' }, h('small', null, 'سجّل الفواتير الضريبية (بيع/شراء) بصافي المبلغ والضريبة (الافتراضي 14%)، وفي نهاية الفترة راجع الإقرار وسوِّ الضريبة بضغطة واحدة: تُخصم المدخلات من المخرجات ويُسدد الصافي، وأي مدخلات زائدة ترحّل للفترة التالية.'))),
+      kpiBox,
+      canW() ? h('div', { class: 'panel' }, h('div', { class: 'ph' }, '1) تسجيل مستند ضريبي'), h('div', { class: 'filters' },
+        h('label', null, h('span', null, 'النوع'), kindSel), h('label', null, h('span', null, 'التاريخ'), dIn),
+        h('label', null, h('span', null, 'الطرف'), partyIn), h('label', null, h('span', null, 'المبلغ'), amtIn),
+        h('label', null, h('span', null, 'النسبة %'), rateIn),
+        h('label', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, incCb, h('span', null, 'المبلغ شامل الضريبة')),
+        h('label', null, h('span', null, 'حساب الإيراد/المصروف'), netSel), h('label', null, h('span', null, 'السداد'), settleSel),
+        btn('➕ تسجيل المستند', addDoc, 'pri')), preview) : null,
+      h('div', { class: 'panel' }, h('div', { class: 'ph' }, '2) إقرار الفترة والتسوية'), h('div', { class: 'filters' },
+        h('label', null, h('span', null, 'من'), rf), h('label', null, h('span', null, 'إلى'), rt), btn('عرض الإقرار', loadReport, 'pri')), repBox, setBox),
+      histBox, docsBox);
+    await refreshKpis(); await loadReport(); await loadHist(); await loadDocs();
+    return root;
+  };
   Object.assign(MZ.pages, P2);
 })();
