@@ -69,4 +69,4 @@ async function api(head, req, u, id, body, q, parts) {
   }
   throw new HttpError(404, 'غير موجود');
 }
-module.exports = { api };
+module.exports = { api, compute };
