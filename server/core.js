@@ -13,7 +13,7 @@ let pool = null;
 
 async function initDb() {
   const base = { host: cfg.host, port: cfg.port, user: cfg.user, password: cfg.password,
-    ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: true }, dateStrings: true, decimalNumbers: true, timezone: '+00:00' };
+    ssl: process.env.DB_NOSSL ? undefined : { minVersion: 'TLSv1.2', rejectUnauthorized: true }, dateStrings: true, decimalNumbers: true, timezone: '+00:00' };
   let dbName = cfg.db;
   const c = await mysql.createConnection(base);
   try { await c.query('CREATE DATABASE IF NOT EXISTS `' + dbName + '`'); }
