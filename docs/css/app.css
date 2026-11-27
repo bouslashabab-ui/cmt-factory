@@ -398,17 +398,25 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @keyframes spin{to{transform:rotate(360deg)}}
 #app .lg-card.shake{animation:shk .45s ease}
 @keyframes shk{20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
-.lts{position:fixed;bottom:54px;left:50%;transform:translateX(-50%);z-index:60;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:92vw;background:rgba(15,20,55,.78);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.2);border-radius:40px;padding:6px 12px;box-shadow:0 12px 30px rgba(0,0,0,.3)}
-.lts>span{color:#aab3e0;font-size:11.5px;font-weight:700}
-.lts button{border:1px solid transparent;background:transparent;color:#e8ebff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .18s}
-.lts button:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}
-.lts button.on{background:#fff;color:#0f1437;border-color:#fff}
+/* settings: login-design thumbnail picker */
+.ltp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px}
+.ltp{border:2px solid var(--bd);border-radius:12px;overflow:hidden;cursor:pointer;background:#fff;transition:transform .15s,border-color .15s,box-shadow .15s}
+.ltp:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(15,20,55,.12)}
+.ltp.on{border-color:var(--teal);box-shadow:0 0 0 3px rgba(53,71,224,.16)}
+.ltp-p{height:72px;position:relative}
+.ltp-p:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:36px;height:46px;border-radius:6px;background:rgba(255,255,255,.94);box-shadow:0 4px 10px rgba(0,0,0,.28)}
+.ltp-p.classic{background:linear-gradient(90deg,#f2f4fb 0 58%,#0f1437 58% 100%)}
+.ltp-p.dark{background:linear-gradient(135deg,#0b1030,#232946)}
+.ltp-p.glass{background:linear-gradient(120deg,#eef1ff,#ffeef5,#e9fff4)}
+.ltp-p.emerald{background:linear-gradient(135deg,#f6f2e9 0 40%,#0d3b2e 40% 100%)}
+.ltp-p.sunset{background:linear-gradient(135deg,#fdf3ec 0 40%,#b34a1e 40% 75%,#431407 75% 100%)}
+.ltp-p.mono{background:linear-gradient(135deg,#fafafa 0 45%,#111 45% 100%)}
+.ltp-p.violet{background:linear-gradient(135deg,#f3efff 0 40%,#241040 40% 100%)}
+.ltp-n{padding:7px 6px;font-size:12px;font-weight:700;text-align:center;color:var(--ink)}
 @media(max-width:900px){
   #app .land .login-clock{position:static;margin:16px auto 0;order:-1;width:max-content;padding:12px 22px 14px;overflow:visible}
   #app .land .login-clock .ck-t{font-size:34px;overflow:visible}
   #app .land .login-clock .ck-s{height:1.35em;line-height:1.35em;overflow:visible}
-  .lts{position:static;transform:none;margin:14px auto 20px;max-width:94vw;padding:5px 10px}
-  .lts button{padding:4px 9px;font-size:11px}
 }
 /* ---- design: classic ---- */
 
