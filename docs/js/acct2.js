@@ -6,9 +6,10 @@
   const money = (n) => n < 0 ? '(' + fmt(-n) + ')' : fmt(n);
   P2.cash_flow = async () => {
     const r = dr(); const pr = VZ.prevRange(r.from, r.to);
-    const [d, p] = await Promise.all([GET('/gl2/cashflow?from=' + r.from + '&to=' + r.to), GET('/gl2/cashflow?from=' + pr.from + '&to=' + pr.to)]);
-    const inflow = d.months.reduce((s, m) => s + m.inflow, 0), outflow = d.months.reduce((s, m) => s + m.outflow, 0), pin = p.months.reduce((s, m) => s + m.inflow, 0), pout = p.months.reduce((s, m) => s + m.outflow, 0);
-    const D = d.direct, I = d.indirect; const box = h('div');
+    let [d, p] = await Promise.all([GET('/gl2/cashflow?from=' + r.from + '&to=' + r.to), GET('/gl2/cashflow?from=' + pr.from + '&to=' + pr.to)]);
+    if (!d || typeof d !== 'object') d = {}; if (!p || typeof p !== 'object') p = {};
+    if (!Array.isArray(d.months)) d.months = []; if (!Array.isArray(p.months)) p.months = []; const inflow = d.months.reduce((s, m) => s + m.inflow, 0), outflow = d.months.reduce((s, m) => s + m.outflow, 0), pin = p.months.reduce((s, m) => s + m.inflow, 0), pout = p.months.reduce((s, m) => s + m.outflow, 0);
+    const D = d.direct || {}, I = d.indirect || {}; if (!D.totals) D.totals = {}; if (!Array.isArray(I.adjustments)) I.adjustments = []; const box = h('div');
     const direct = () => h('div', null, sec('أولًا: التدفقات النقدية من الأنشطة التشغيلية', D.operating, 'صافي التدفق التشغيلي', D.totals.operating), sec('ثانيًا: التدفقات النقدية من الأنشطة الاستثمارية', D.investing, 'صافي التدفق الاستثماري', D.totals.investing), sec('ثالثًا: التدفقات النقدية من الأنشطة التمويلية', D.financing, 'صافي التدفق التمويلي', D.totals.financing));
     const indirect = () => h('div', null,
       sec('أولًا: الأنشطة التشغيلية (الطريقة غير المباشرة)', [{ name: 'صافي ربح الفترة', amount: I.profit }].concat(I.adjustments), 'صافي التدفق التشغيلي', I.operating),
@@ -19,7 +20,7 @@
     show('direct');
     const sum = h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'ملخص التغير في النقدية'), table([{ t: 'البند', f: x => x[0] }, { t: 'المبلغ', cls: 'num', f: x => x[1] }], [
       ['النقدية وما في حكمها أول الفترة (' + r.from + ')', money(d.opening)], ['صافي التدفق التشغيلي', money(D.totals.operating)], ['صافي التدفق الاستثماري', money(D.totals.investing)], ['صافي التدفق التمويلي', money(D.totals.financing)], ['صافي التغير في النقدية', money(d.net_change)]], { foot: ['النقدية وما في حكمها آخر الفترة (' + r.to + ')', money(d.closing)] }));
-    const okTag = h('span', { class: 'okb ' + (d.check.direct_ok && d.check.indirect_ok ? 'ok' : 'bad') }, d.check.direct_ok && d.check.indirect_ok ? '✔ الطريقتان تطابقان رصيد الصندوق والبنك' : '✖ يوجد فرق: مباشر ' + fmt(d.check.diff_direct) + ' | غير مباشر ' + fmt(d.check.diff_indirect));
+    if (!d.check) d.check = {}; const okTag = h('span', { class: 'okb ' + (d.check.direct_ok && d.check.indirect_ok ? 'ok' : 'bad') }, d.check.direct_ok && d.check.indirect_ok ? '✔ الطريقتان تطابقان رصيد الصندوق والبنك' : '✖ يوجد فرق: مباشر ' + fmt(d.check.diff_direct) + ' | غير مباشر ' + fmt(d.check.diff_indirect));
     return h('div', null, pageHead('💧 قائمة التدفقات النقدية', btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())), rangeBar('cash_flow'),
       h('div', { class: 'kpis' }, VZ.kpiD('نقدية أول الفترة', d.opening, p.opening), VZ.kpiD('إجمالي المقبوضات', inflow, pin, true), VZ.kpiD('إجمالي المدفوعات', outflow, pout, false), VZ.kpiD('نقدية آخر الفترة', d.closing, p.closing, true)),
       VZ.bars('المقبوضات والمدفوعات شهريًا', d.months.map(m => ({ l: VZ.monthLabel(m.month), v: { in: m.inflow, out: m.outflow } })), [{ k: 'in', label: 'مقبوضات', color: '#3547e0' }, { k: 'out', label: 'مدفوعات', color: '#f0457a' }]),
@@ -66,7 +67,7 @@
         VZ.hbars('أكبر الحركات غير المطابقة', un.map(l => ({ l: (l.memo || ('قيد رقم ' + l.no)).slice(0, 30), v: r2c(absL(l)) })).sort((a, b) => b.v - a.v).slice(0, 6)));
       upd();
     };
-    const load = guard(async () => { data = await GET('/gl2/bankrec?to=' + dIn.value); sel.clear(); data.lines.forEach(l => { if (l.cleared) sel.add(l.line_id); }); render(); });
+    const load = guard(async () => { data = await GET('/gl2/bankrec?to=' + dIn.value) || {}; if (!Array.isArray(data.lines)) data.lines = []; if (!data.to) data.to = dIn.value; sel.clear(); data.lines.forEach(l => { if (l.cleared) sel.add(l.line_id); }); render(); });
     const loadHist = guard(async () => {
       const rs = await GET('/gl2/bankrecs'); histBox.innerHTML = '';
       histBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'سجل التسويات السابقة'), table([
@@ -84,7 +85,7 @@
   /* ---------- fixed assets: register + straight-line monthly depreciation ---------- */
   P2.assets = async () => {
     const root = h('div');
-    let list = await GET('/gl2/assets');
+    let list = await GET('/gl2/assets'); if (!Array.isArray(list)) list = [];
     const kpiBox = h('div', { class: 'kpis' }), chartBox = h('div'), tblBox = h('div'), formBox = h('div'), runBox = h('div'), histBox = h('div');
     const renderList = () => {
       const totC = r2c(list.reduce((s, a) => s + a.cost, 0)), totA = r2c(list.reduce((s, a) => s + a.acc_dep, 0)), totN = r2c(list.reduce((s, a) => s + a.nbv, 0));
@@ -121,7 +122,7 @@
         const r = await POST('/gl2/assets', { name: nm.value, category: cat.value, purchase_date: pd.value, cost: +cost.value, salvage: +salv.value, life_years: +life.value, pay_account: pay.value || null });
         toast(r.entry ? 'سُجّل الأصل وقيد الشراء رقم ' + r.entry.no + ' ✔' : 'سُجّل الأصل ✔');
         nm.value = ''; cat.value = ''; cost.value = ''; salv.value = 0; life.value = 10;
-        list = await GET('/gl2/assets'); renderList();
+        list = await GET('/gl2/assets'); if (!Array.isArray(list)) list = []; renderList();
       });
       formBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'إضافة أصل ثابت'), h('div', { class: 'filters' },
         h('label', null, h('span', null, 'اسم الأصل'), nm), h('label', null, h('span', null, 'الفئة'), cat),
@@ -143,10 +144,10 @@
       if (!pv || !(await confirmBox('ترحيل إهلاك شهر ' + moIn.value + ' بإجمالي ' + fmt(pv.due_total) + '؟ سيُنشأ قيد تسوية لكل أصل.'))) return;
       const r = await POST('/gl2/depreciation', { month: moIn.value });
       toast(r.posted ? 'رُحّل إهلاك ' + r.posted + ' أصل بإجمالي ' + fmt(r.total) + ' ✔' : 'لا يوجد إهلاك مستحق لهذا الشهر');
-      list = await GET('/gl2/assets'); renderList(); await preview(); await loadHist();
+      list = await GET('/gl2/assets'); if (!Array.isArray(list)) list = []; renderList(); await preview(); await loadHist();
     });
     const preview = guard(async () => {
-      pv = await GET('/gl2/depreciation?month=' + moIn.value);
+      pv = await GET('/gl2/depreciation?month=' + moIn.value) || {}; if (!Array.isArray(pv.items)) pv.items = [];
       pvBox.innerHTML = ''; okBox.innerHTML = '';
       pvBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'إهلاك شهر ' + VZ.monthLabel(pv.month) + ' — القيد بتاريخ ' + pv.month_end), table([
         { t: 'الأصل', f: i => i.name }, { t: 'الفئة', f: i => i.category || '—' }, { t: 'مجمع سابق', cls: 'num', f: i => fmt(i.acc_dep) },
@@ -211,7 +212,7 @@
     });
     const paySel = selOf(PAY_OPTS);
     const showPayroll = guard(async () => {
-      pData = await GET('/gl2/payroll-accrual?ym=' + pym.value);
+      pData = await GET('/gl2/payroll-accrual?ym=' + pym.value) || {}; if (!pData.calc) pData.calc = {};
       const c = pData.calc; pInfo.innerHTML = ''; pAct.innerHTML = '';
       pInfo.append(h('div', { class: 'kpis' }, VZ.kpiD('إجمالي المستحق', c.gross), VZ.kpiD('السلف (تُسترد)', c.advances), VZ.kpiD('خصومات أخرى', c.other_ded), VZ.kpiD('صافي الرواتب', c.net)));
       const st = pData.accrual;
@@ -260,7 +261,7 @@
       await loadPrepaids(); await previewAmort(); await loadAmortHist(); await refreshKpis();
     });
     const previewAmort = guard(async () => {
-      amPv = await GET('/gl2/amortize?month=' + amMonth.value);
+      amPv = await GET('/gl2/amortize?month=' + amMonth.value) || {}; if (!Array.isArray(amPv.items)) amPv.items = [];
       amBox.innerHTML = ''; amAct.innerHTML = '';
       amBox.append(table([
         { t: 'المصروف', f: i => i.name }, { t: 'المستهلك', cls: 'num', f: i => fmt(i.amortized) }, { t: 'هذا الشهر', cls: 'num', f: i => i.posted ? '' : fmt(i.due) },
@@ -443,7 +444,7 @@
     const kpiBox = h('div'), ageBox = h('div'), tblBox = h('div'), noteBox = h('div');
     const load = guard(async () => {
       if (!supSel.value) { toast('اختر المورد أولًا', 'err'); return; }
-      const d = await GET('/gl2/supplier-statement?supplier_id=' + supSel.value + '&from=' + fIn.value + '&to=' + tIn.value);
+      const d = await GET('/gl2/supplier-statement?supplier_id=' + supSel.value + '&from=' + fIn.value + '&to=' + tIn.value) || {}; if (!Array.isArray(d.moves)) d.moves = []; if (!d.aging) d.aging = {}; if (!d.supplier) d.supplier = {};
       kpiBox.innerHTML = ''; ageBox.innerHTML = ''; tblBox.innerHTML = ''; noteBox.innerHTML = '';
       kpiBox.append(h('div', { class: 'kpis' },
         VZ.kpiD('رصيد أول الفترة', d.opening),
