@@ -8,10 +8,17 @@
   async function meta() { META = await GET('/sinv/meta'); return META; }
   const sel = (opts, val, attrs) => { const s = h('select', attrs || {}); s.append(...opts.map(o => h('option', { value: String(o[0]), selected: String(o[0]) === String(val) ? 'selected' : null }, o[1]))); return s; };
 
-  /* ---------- invoice editor ---------- */
-  P2.sinv_new = async () => {
+  /* ---------- invoice editor (new + edit) ---------- */
+  async function editor(editId, winKey) {
     if (!META) await meta();
-    let type = 'cash', grid = null, party = null, dateIn = null, whSel = null, brSel = null, stSel = null, vatIn = null, notesIn = null, totalsBox = null, glBox = null;
+    let pre = null;
+    if (editId) {
+      const r = await GET('/sinv/one?id=' + editId);
+      if (r.invoice.status === 'canceled') throw new Error('الفاتورة ملغاة ولا يمكن تعديلها');
+      if (r.invoice.type === 'quote' && r.invoice.status !== 'open') throw new Error('عرض السعر محوَّل ولا يمكن تعديله');
+      pre = r;
+    }
+    let type = pre ? pre.invoice.type : 'cash', grid = null, party = null, dateIn = null, whSel = null, brSel = null, stSel = null, vatIn = null, notesIn = null, totalsBox = null, glBox = null;
     const isSale = () => type !== 'purchase';
     const r2c = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
     function totals() {
@@ -39,11 +46,11 @@
     function headFields() {
       const isP = !isSale();
       const parties = isP ? META.suppliers.map(x => [x.id, x.code + ' — ' + x.name]) : META.clients.map(x => [x.id, x.code + ' — ' + x.name]);
-      party = sel(parties, party && party.value, { class: 'in' });
-      brSel = sel([['', '— بدون فرع —']].concat(META.branches.map(b => [b.id, b.code + ' — ' + b.name])), brSel && brSel.value, { class: 'in' });
-      whSel = sel(META.warehouses.map(w => [w.id, w.name]), whSel && whSel.value, { class: 'in' });
+      party = sel(parties, party ? party.value : (pre ? String(isP ? pre.invoice.supplier_id : pre.invoice.client_id) : null), { class: 'in' });
+      brSel = sel([['', '— بدون فرع —']].concat(META.branches.map(b => [b.id, b.code + ' — ' + b.name])), brSel ? brSel.value : (pre && pre.invoice.branch_id ? String(pre.invoice.branch_id) : ''), { class: 'in' });
+      whSel = sel(META.warehouses.map(w => [w.id, w.name]), whSel ? whSel.value : (pre && pre.invoice.wh_id ? String(pre.invoice.wh_id) : null), { class: 'in' });
       const showSettle = type === 'return' || type === 'purchase';
-      stSel = sel([['cash', 'نقدي'], ['credit', 'آجل']], stSel && stSel.value, { class: 'in', onchange: glPreview });
+      stSel = sel([['cash', 'نقدي'], ['credit', 'آجل']], stSel ? stSel.value : (pre ? pre.invoice.settle : null), { class: 'in', onchange: glPreview });
       return h('div', { class: 'sinv-head' },
         h('label', null, isP ? 'المورد' : 'العميل', party),
         h('label', null, 'التاريخ', dateIn),
@@ -55,9 +62,9 @@
     }
     const headBox = h('div');
     function buildHead() { headBox.innerHTML = ''; headBox.append(headFields()); }
-    dateIn = h('input', { class: 'in', type: 'date', value: new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }) });
-    vatIn = h('input', { class: 'in', type: 'number', min: '0', max: '100', step: '0.01', value: '14', inputmode: 'decimal', oninput: refreshTotals });
-    notesIn = h('input', { class: 'in', placeholder: 'اختياري' });
+    dateIn = h('input', { class: 'in', type: 'date', value: pre ? String(pre.invoice.date).slice(0, 10) : new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }) });
+    vatIn = h('input', { class: 'in', type: 'number', min: '0', max: '100', step: '0.01', value: pre ? String(pre.invoice.vat_rate) : '14', inputmode: 'decimal', oninput: refreshTotals });
+    notesIn = h('input', { class: 'in', placeholder: 'اختياري', value: pre ? (pre.invoice.notes || '') : '' });
     totalsBox = h('div', { class: 'sinv-totals' });
     glBox = h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'القيد المحاسبي (معاينة حية)'));
     function buildGrid() {
@@ -77,29 +84,50 @@
     }
     const gridBox = h('div');
     const seg = h('div', { class: 'seg sinv-seg' });
-    function drawSeg() { seg.innerHTML = ''; Object.keys(TNAMES).forEach(k => seg.append(h('button', { class: k === type ? 'on' : '', onclick: () => { type = k; drawSeg(); buildHead(); glPreview(); } }, TICONS[k] + ' ' + TNAMES[k]))); }
-    drawSeg(); buildHead(); buildGrid(); refreshTotals();
-    async function save() {
+    function drawSeg() {
+      seg.innerHTML = '';
+      Object.keys(TNAMES).forEach(k => {
+        if (editId && k !== type) return; // the type never changes on edit
+        seg.append(h('button', { class: k === type ? 'on' : '', onclick: editId ? null : () => { type = k; drawSeg(); buildHead(); glPreview(); } }, TICONS[k] + ' ' + TNAMES[k]));
+      });
+    }
+    drawSeg(); buildHead(); buildGrid();
+    if (pre) grid.setRows(pre.lines.map(l => ({ item_id: l.item_id || null, description: l.description, qty: String(l.qty), price: String(l.price), disc: String(l.disc), _unit: l.unit || '' })));
+    refreshTotals();
+    function snapshot() {
+      return JSON.stringify({ type, p: party && party.value, d: dateIn.value, b: brSel && brSel.value, w: whSel && whSel.value, s: stSel && stSel.value, v: vatIn.value, n: notesIn.value, rows: grid ? grid.rows() : [] });
+    }
+    let snap = snapshot();
+    MZ.regDirty(winKey, { isDirty: () => snapshot() !== snap, save: async () => !!(await save(false)) });
+    async function save(nav) {
+      if (nav === undefined) nav = true;
       const t = totals();
-      if (!t.rows.length) return toast('أضف سطرًا واحدًا على الأقل', 'err');
-      if (!party.value) return toast(isSale() ? 'اختر العميل' : 'اختر المورد', 'err');
-      if (t.rows.some(r => r.item_id) && !whSel.value) return toast('اختر المخزن', 'err');
+      if (!t.rows.length) { toast('أضف سطرًا واحدًا على الأقل', 'err'); return false; }
+      if (!party.value) { toast(isSale() ? 'اختر العميل' : 'اختر المورد', 'err'); return false; }
+      if (t.rows.some(r => r.item_id) && !whSel.value) { toast('اختر المخزن', 'err'); return false; }
       const body = { type, date: dateIn.value, vat_rate: t.rate, notes: notesIn.value, branch_id: brSel.value || null, wh_id: whSel.value || null, settle: stSel ? stSel.value : 'cash', lines: t.rows.map(r => ({ item_id: r.item_id || null, description: r.description || '', qty: parseFloat(r.qty) || 0, price: parseFloat(r.price) || 0, disc: parseFloat(r.disc) || 0 })) };
       if (isSale()) body.client_id = +party.value; else body.supplier_id = +party.value;
+      if (editId) body.id = editId;
       try {
-        const r = await POST('/sinv/create', body); SND.play('save');
-        toast((type === 'quote' ? 'تم حفظ عرض السعر ' : 'تم حفظ الفاتورة ') + r.no, 'ok');
-        grid.clear(); notesIn.value = '';
-        openPage('sinv_view_' + r.id);
-      } catch (e) { toast(e.message || 'تعذر الحفظ', 'err'); }
+        const r = await POST(editId ? '/sinv/update' : '/sinv/create', body); SND.play('save');
+        toast((editId ? 'تم حفظ تعديل ' : type === 'quote' ? 'تم حفظ عرض السعر ' : 'تم حفظ الفاتورة ') + r.no, 'ok');
+        MZ.clearDirty(winKey);
+        if (nav) {
+          if (!editId) { grid.clear(); notesIn.value = ''; }
+          openPage('sinv_view_' + r.id);
+        } else { snap = snapshot(); }
+        return true;
+      } catch (e) { toast(e.message || 'تعذر الحفظ', 'err'); return false; }
     }
     return h('div', null,
-      pageHead('🧾 فاتورة جديدة', btn('💾 حفظ', save), btn('➕ سطر', () => grid.addRow())),
+      pageHead(editId ? '✏️ تعديل ' + (type === 'quote' ? 'عرض السعر' : 'فاتورة') + ' ' + pre.invoice.no : '🧾 فاتورة جديدة', btn(editId ? '💾 حفظ التعديل' : '💾 حفظ', () => save()), btn('➕ سطر', () => grid.addRow())),
+      editId ? h('div', { class: 'sinv-editnote' }, 'عند الحفظ يُعكس القيد وحركات المخزون القديمة ويُرحَّل القيد الجديد بنفس الرقم — كل الخطوات مسجلة في سجل المراجعة.') : null,
       seg,
       h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'بيانات الفاتورة'), headBox),
       h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'السطور — شبكة إكسل: الأسهم/Tab/Enter للتنقل · Ctrl+D تعبئة لأسفل · Ctrl+Insert سطر · Ctrl+Delete حذف · لصق جدول كامل مدعوم'), gridBox, totalsBox),
       glBox);
-  };
+  }
+  P2.sinv_new = () => editor(null, 'sinv_new');
 
   /* ---------- invoice list ---------- */
   P2.sinv_list = async () => {
@@ -113,7 +141,7 @@
       box.append(table([
         { t: 'الرقم', f: x => x.no }, { t: 'النوع', f: x => TICONS[x.type] + ' ' + TNAMES[x.type] }, { t: 'التاريخ', f: x => String(x.date).slice(0, 10) },
         { t: 'الطرف', f: x => x.client || x.supplier || '—' }, { t: 'الفرع', f: x => x.branch || '—' },
-        { t: 'الإجمالي', cls: 'num', f: x => fmt(x.total) }, { t: 'الحالة', f: x => x.type === 'quote' ? (x.status === 'open' ? 'مفتوح' : 'محوَّل') : 'مرحَّلة' }],
+        { t: 'الإجمالي', cls: 'num', f: x => fmt(x.total) }, { t: 'الحالة', f: x => x.status === 'canceled' ? '⛔ ملغاة' : x.type === 'quote' ? (x.status === 'open' ? 'مفتوح' : 'محوَّل') : 'مرحَّلة' }],
         rows, { empty: 'لا توجد فواتير بعد', onclick: x => openPage('sinv_view_' + x.id) }));
     }
     seg.append(h('button', { class: 'on', onclick: function () { seg.querySelectorAll('button').forEach(b => b.classList.remove('on')); this.classList.add('on'); type = ''; load(); } }, 'الكل'));
@@ -131,8 +159,18 @@
     const convBtns = v.type === 'quote' && v.status === 'open' ? [
       btn('➡ تحويل لفاتورة آجلة', async () => { const r = await POST('/sinv/convert', { id: v.id, type: 'credit' }); toast('أُنشئت الفاتورة ' + r.no, 'ok'); openPage('sinv_view_' + r.id); }),
       btn('➡ تحويل لفاتورة نقدية', async () => { const r = await POST('/sinv/convert', { id: v.id, type: 'cash' }); toast('أُنشئت الفاتورة ' + r.no, 'ok'); openPage('sinv_view_' + r.id); })] : [];
+    const editable = (v.type === 'quote' && v.status === 'open') || (v.type !== 'quote' && v.status === 'posted');
+    const editBtn = editable ? btn('✏️ تعديل', () => openPage('sinv_edit_' + v.id)) : null;
+    const cancelBtn = editable ? btn('🗑 إلغاء', async () => {
+      const k = await confirmDialog('إلغاء ' + (v.type === 'quote' ? 'عرض السعر' : 'الفاتورة') + ' ' + v.no,
+        v.type === 'quote' ? 'سيُلغى عرض السعر ولن يمكن تحويله بعد ذلك.' : 'سيتم عكس القيد المحاسبي وحركات المخزون بالكامل بتاريخ اليوم، وتسجيل العملية في سجل المراجعة. لا يمكن التراجع عن الإلغاء.',
+        [{ k: 'yes', t: '🗑 نعم، إلغاء نهائي', kind: 'dan' }, { k: 'no', t: 'تراجع', kind: 'pri' }]);
+      if (k !== 'yes') return;
+      try { await POST('/sinv/cancel', { id: v.id }); SND.play('save'); toast('أُلغيت ' + v.no + ' وعُكس قيدها ومخزونها', 'ok'); openPage('sinv_list'); }
+      catch (e) { toast(e.message || 'تعذر الإلغاء', 'err'); }
+    }, 'dan') : null;
     return h('div', null,
-      pageHead(TICONS[v.type] + ' ' + (v.type === 'quote' ? 'عرض سعر' : 'فاتورة') + ' ' + v.no, btn('🖨 طباعة', () => printPage()), btn('🗂 السجل', () => openPage('sinv_list')), ...convBtns),
+      pageHead(h('span', null, TICONS[v.type] + ' ' + (v.type === 'quote' ? 'عرض سعر' : 'فاتورة') + ' ' + v.no, v.status === 'canceled' ? h('span', { class: 'sinv-canceled' }, '⛔ ملغاة') : null), btn('🖨 طباعة', () => printPage()), btn('🗂 السجل', () => openPage('sinv_list')), editBtn, cancelBtn, ...convBtns),
       h('div', { class: 'sinv-doc' },
         h('div', { class: 'sd-band' }, h('div', null, h('h2', null, MZ.settings.company_name || 'إدارة مصنع الملابس'), h('small', null, 'نظام التصنيع للغير')),
           h('div', { class: 'sd-type' }, (isP ? 'فاتورة شراء' : v.type === 'quote' ? 'عرض سعر (بروفورما)' : v.type === 'return' ? 'إشعار مرتجع مبيعات' : 'فاتورة ضريبية'), h('b', null, v.no))),
@@ -155,6 +193,7 @@
   const origOpen = window.openPage;
   window.openPage = function (key) {
     if (String(key).startsWith('sinv_view_')) { const id = +String(key).split('_').pop(); openWin(key, 'فاتورة', async () => viewPage(id), { refresh: true }); return; }
+    if (String(key).startsWith('sinv_edit_')) { const id = +String(key).split('_').pop(); openWin(key, 'تعديل فاتورة', async () => editor(id, key), { refresh: true }); return; }
     return origOpen(key);
   };
 
