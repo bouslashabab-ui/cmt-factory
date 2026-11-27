@@ -83,7 +83,7 @@ function buildTopnav(nm) {
     h('div', { class: 'brand tn-brand', html: LOGO + '<div><h1>' + APP_NAME + '</h1></div>' }),
     secsNav,
     h('div', { class: 'today' }, ''),
-    h('div', { class: 'tn-me' }, muteBtn(), h('span', { class: 'tn-nm' }, nm), h('button', { class: 'tn-out', onclick: logout }, 'خروج')));
+    h('div', { class: 'tn-me' }, h('button', { class: 'tbn lang-btn', type: 'button', onclick: () => I18N_SET(I18N.lang === 'en' ? 'ar' : 'en') }, '🌐 EN'), muteBtn(), h('span', { class: 'tn-nm' }, nm), h('button', { class: 'tn-out', onclick: logout }, 'خروج')));
   document.addEventListener('click', (e) => { if (openSec && !e.target.closest('.topnav') && !e.target.closest('.tn-panel')) closePanel(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
   let rzT = null;
@@ -113,7 +113,7 @@ function shell() {
     h('div', { class: 'me' }, h('div', { class: 'av' }, nm.trim().charAt(0)), h('div', null, nm, h('small', null, ROLE_AR[MZ.user.role] || '')), muteBtn(), h('button', { onclick: logout }, 'خروج')));
   const main = h('div', { class: 'main' },
     h('div', { class: 'topbar' }, h('button', { class: 'burger', onclick: () => side.classList.toggle('open') }, '☰'), h('div', { class: 'tabs', id: 'tabs' }),
-      h('button', { class: 'tbn', onclick: themePicker, title: 'سمات النظام' }, '🎨 السمات'), h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today today-plain' }, new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
+      h('button', { class: 'tbn', onclick: themePicker, title: 'سمات النظام' }, '🎨 السمات'), h('button', { class: 'tbn lang-btn', type: 'button', onclick: () => I18N_SET(I18N.lang === 'en' ? 'ar' : 'en') }, '🌐 EN'), h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today today-plain' }, new Date().toLocaleDateString(window.MZ_LOC ? MZ_LOC() : 'ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
     h('div', { id: 'desk' }));
   app.append(...buildTopnav(nm), side, main);
   requestAnimationFrame(() => window.__tnLayout && window.__tnLayout());
