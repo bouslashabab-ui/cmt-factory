@@ -177,6 +177,7 @@ function loginScreen() {
   land.dataset.lt = LT_DEF.some(x => x[0] === ltSaved) ? ltSaved : 'classic';
   const lts = h('div', { class: 'lts' }, h('span', null, 'التصميم:'), ...LT_DEF.map(([k, t]) => h('button', { type: 'button', class: k === land.dataset.lt ? 'on' : '', onclick: (ev) => { land.dataset.lt = k; localStorage.setItem('cmt_ltheme', k); lts.querySelectorAll('button').forEach(x => x.classList.remove('on')); ev.currentTarget.classList.add('on'); if (window.matchMedia && matchMedia('(min-width:901px)').matches) { form.style.animation = 'none'; form.style.transform = LT_ROT[k] || ''; } } }, t)));
   land.append(lts);
+  app.append(land);
   const ping = async (n = 0) => {
     try {
       const st = await GET('/status'); go.disabled = false; go.classList.remove('busy'); msg.textContent = '';
