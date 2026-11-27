@@ -87,3 +87,37 @@ P.aging = async () => {
     table([{ t: 'العميل', k: 'name' }, { t: '0-30 يوم', f: r => fmt(r.b0), cls: 'num' }, { t: '31-60 يوم', f: r => fmt(r.b30), cls: 'num' }, { t: '61-90 يوم', f: r => fmt(r.b60), cls: 'num' }, { t: 'أكثر من 90', f: r => fmt(r.b90), cls: 'num' }, { t: 'الإجمالي', f: r => h('b', null, fmt(r.total)), cls: 'num' }, { t: 'أقدم دين (يوم)', f: r => r.oldest_days === null ? '' : r.oldest_days, cls: 'num' }, { t: 'رصيد دائن', f: r => r.credit ? fmt(r.credit) : '', cls: 'num' }], rows, { empty: 'لا توجد مديونيات' }));
 };
 MZ.pages.assistant = P.assistant; MZ.pages.expenses = P.expenses; MZ.pages.profit = P.profit; MZ.pages.aging = P.aging;
+
+/* ---------- Code 128 barcode (SVG, no libraries) + print templates ---------- */
+const C128 = ['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213','221312','231212','112232','122132','122231','113222','123122','123221','223211','221132','221231','213212','223112','312131','311222','321122','321221','312212','322112','322211','212123','212321','232121','111323','131123','131321','112313','132113','132311','211313','231113','231311','112133','112331','132131','113123','113321','133121','313121','211331','231131','213113','213311','213131','311123','311321','331121','312113','312311','332111','314111','221411','431111','111224','111422','121124','121421','141122','141221','112214','112412','122114','122411','142112','142211','241211','221114','413111','241112','134111','111242','121142','121241','114212','124112','124211','411212','421112','421211','212141','214121','412121','111143','111341','131141','114113','114311','411113','411311','113141','114131','311141','411131','211412','211214','211232','2331112'];
+function barcodeSvg(text, h2) {
+  text = String(text || '').replace(/[^\x20-\x7e]/g, ''); if (!text) text = '0';
+  const codes = [104]; for (const ch of text) codes.push(ch.charCodeAt(0) - 32);
+  let sum = codes[0]; for (let i = 1; i < codes.length; i++) sum += codes[i] * i; codes.push(sum % 103, 106);
+  let x = 10, bars = '';
+  for (const c of codes) { const p = C128[c]; for (let i = 0; i < p.length; i++) { const w = +p[i]; if (i % 2 === 0) bars += '<rect x="' + x + '" y="0" width="' + w + '" height="' + (h2 || 50) + '"/>'; x += w; } }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + (x + 10) + ' ' + (h2 || 50) + '" width="' + Math.min(260, (x + 10) * 1.6) + '" height="' + (h2 || 50) + '" preserveAspectRatio="none" style="direction:ltr;background:#fff"><rect width="100%" height="100%" fill="#fff"/><g fill="#000">' + bars + '</g></svg>';
+}
+function sheetHd(title, sub) {
+  return h('div', { class: 'print-doc' }, h('div', { class: 'print-hd', style: 'display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px' }, h('div', null, h('b', null, MZ.settings.company_name || ''), h('div', null, title)), h('div', null, sub || new Date().toLocaleDateString('ar-EG'))));
+}
+function kv(pairs) { return h('table', { class: 'grid' }, h('tbody', null, ...pairs.map(([a, b]) => h('tr', null, h('th', { style: 'width:30%;text-align:right' }, a), h('td', null, b == null ? '' : String(b)))))); }
+window.printCutSheet = function (r) {
+  const doc = sheetHd('ورقة أمر القص ' + r.code);
+  doc.append(h('div', { html: barcodeSvg(r.code, 50), style: 'text-align:left;margin:6px 0' }));
+  doc.append(kv([['كود القصة', r.code], ['العميل', r.client_name], ['الموديل', r.model_name], ['الخامة', r.fabric], ['اللون', r.color], ['وزن القماش المحول (كجم)', n3(r.weight_in)], ['الوزن المستخدم (كجم)', n3(r.weight_used)], ['الهالك (كجم)', n3(r.waste)], ['طول الراق (م) / عرض (سم)', (r.marker_len || 0) + ' / ' + (r.marker_width || 0)], ['عدد الراقات', r.layers], ['إجمالي القطع', fmt(r.total, 0)], ['تكلفة القطعة', fmt(r.unit_cost)], ['إجمالي التكلفة', fmt(r.cost_total)], ['المسلم / المتبقي', fmt(r.delivered, 0) + ' / ' + fmt(r.left, 0)]]));
+  doc.append(h('h3', null, 'المقاسات'), table(sizeKeys.map(([k, t]) => ({ t, k })), [r]));
+  doc.append(h('div', { style: 'display:flex;justify-content:space-between;margin-top:40px' }, h('div', null, 'توقيع القصّاص: ..............'), h('div', null, 'توقيع المراجع: ..............')));
+  printEl('أمر القص ' + r.code, doc);
+};
+window.printPayslips = function (rows, ym) {
+  const wrap = h('div');
+  rows.forEach((r) => {
+    const d = sheetHd('قسيمة مرتب شهر ' + ym, r.name);
+    d.style.cssText = 'page-break-inside:avoid;margin-bottom:24px;border:1px solid #888;padding:10px';
+    d.append(kv([['الموظف', r.name + (r.code ? ' (' + r.code + ')' : '')], ['الوظيفة', r.job], ['الراتب الأساسي', fmt(r.salary)], ['أيام الحضور', r.present], ['الأجر اليومي', fmt(r.daily)], ['قيمة الجمع', fmt(r.friday_value)], ['قيمة الإضافي', fmt(r.ot_value)], ['إجمالي المستحق', fmt(r.gross)], ['السلف', fmt(r.advances)], ['الخصم', fmt(r.deduction)], ['أيام الغياب', r.absent], ['إجمالي الاستقطاعات', fmt(r.total_deductions)], ['صافي المرتب', fmt(r.net)]]));
+    d.append(h('div', { style: 'margin-top:14px' }, 'توقيع المستلم: ..............'));
+    wrap.append(d);
+  });
+  printEl('قسائم المرتبات ' + ym, wrap);
+};
