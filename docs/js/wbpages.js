@@ -47,7 +47,7 @@ P.orders = async () => {
   const root = h('div'); let fil = {};
   const render = async () => {
     const qs = [fil.client_id ? 'client_id=' + fil.client_id : '', fil.code ? 'code=' + encodeURIComponent(fil.code) : ''].filter(Boolean).join('&');
-    const rows = await GET('/orders' + (qs ? '?' + qs : ''));
+    const rows = await GET('/orders' + (qs ? '?' + qs : '')); if (rows.length) MZ.lastOrder = rows[rows.length - 1];
     const tot = (k) => rows.reduce((a, r) => a + Number(r[k] || 0), 0);
     root.innerHTML = '';
     const cols = [
@@ -58,6 +58,7 @@ P.orders = async () => {
       ...sizeKeys.map(([k, t]) => ({ t, k })), { t: 'إجمالي القطع الناتجة', f: r => h('b', null, fmt(r.total, 0)), csv: r => r.total },
       { t: 'تكلفة تصنيع القطعة', f: r => n0(r.unit_cost), csv: r => r.unit_cost }, { t: 'إجمالي التكلفة', f: r => h('b', null, fmt(r.cost_total)), csv: r => r.cost_total }, { t: 'القص', k: 'cut_status' },
       { t: 'إجمالي القطع المسلمة', k: 'delivered' }, { t: 'المتبقي للتسليم', f: r => fmt(r.left, 0), csv: r => r.left }, { t: 'حالة التسليم', f: r => tag(r.deliv_status, r.deliv_status === 'تم التسليم'), csv: r => r.deliv_status },
+      { t: '', f: r => btn('🖨 ورقة', () => printCutSheet(r), 'sm') },
       canW() ? { t: '', f: r => h('span', null, btn('تعديل', () => edit(r), 'sm'), ' ', delBtn('/orders', render, 'حذف سطر أمر القص؟')(r)) } : null].filter(Boolean);
     const bar = filterBar([{ k: 'code', t: 'بحث بكود القصة' }, { k: 'client_id', t: 'العميل', type: 'ref', ref: cOpts }], v => { fil = v; render(); }, fil);
     root.append(pageHead('أمر القص التفصيلي', canW() ? btn('➕ سطر قص جديد', () => edit(null), 'pri') : null, btn('🖨 طباعة', () => printEl('أمر القص', table(cols.slice(0, -1), rows))), btn('⬇ تصدير Excel (CSV)', () => download('أمر القص التفصيلي.csv', csvOf(cols.slice(0, -1), rows)))), bar,
@@ -71,7 +72,7 @@ P.orders = async () => {
       { k: 'layers', t: 'عدد الراقات', type: 'number' }, { k: 'sizes_in_marker', t: 'عدد المقاسات في الراق', type: 'number' }, { k: 'pcs_in_marker', t: 'عدد القطع في الراق', type: 'number' },
       ...sizeKeys.map(([k, t]) => ({ k, t: 'عدد ' + t, type: 'number' })), { k: 'total_pcs', t: 'إجمالي القطع (إن لم تُكتب مقاسات)', type: 'number' }, { k: 'unit_cost', t: 'تكلفة تصنيع القطعة (جنيه)', type: 'number' },
       { k: 'cut_status', t: 'القص', def: 'تم القص' }, { k: 'delivered', t: 'إجمالي القطع المسلمة', type: 'number', def: 0 }, { k: 'notes', t: 'ملاحظات', full: 1 }];
-    const f = formGrid(flds, r || { date: today(), cut_status: 'تم القص', delivered: 0 });
+    const f = formGrid(flds, r || { date: today(), cut_status: 'تم القص', delivered: 0, unit_cost: MZ.lastOrder ? MZ.lastOrder.unit_cost : undefined });
     const info = h('div', { class: 'panel' }, h('div', { class: 'pb' }));
     const upd = () => { const b = f.get(); const sz = sizeKeys.reduce((a, [k]) => a + (Number(b[k]) || 0), 0); const any = sizeKeys.some(([k]) => b[k] !== null && b[k] !== ''); const tot = any ? sz : (Number(b.total_pcs) || 0); info.firstChild.textContent = 'إجمالي القطع: ' + fmt(tot, 0) + '   |   إجمالي التكلفة: ' + fmt(tot * (Number(b.unit_cost) || 0)) + ' جنيه'; };
     f.el.addEventListener('input', upd); upd();
@@ -166,9 +167,9 @@ P.payroll = async () => {
     const cols = [{ t: 'كود', k: 'code' }, { t: 'اسم الموظف', k: 'name' }, { t: 'الوظيفة', k: 'job' }, { t: 'الراتب الأساسي', k: 'salary', num: 1 }, { t: 'أيام الحضور', k: 'present' }, { t: 'الأجر اليومي', k: 'daily', num: 1 }, { t: 'الساعات الإضافية', k: 'ot_hours' }, { t: 'عدد الجمع', k: 'fridays' }, { t: 'قيمة الجمع', k: 'friday_value', num: 1 }, { t: 'قيمة الإضافي', k: 'ot_value', num: 1 }, { t: 'إجمالي المستحق', k: 'gross', num: 1 }, { t: 'السلف', k: 'advances', num: 1 }, { t: 'أيام الغياب', k: 'absent' }, { t: 'الخصم (إنتاج - استئذان)', k: 'deduction', num: 1 }, { t: 'إجمالي الاستقطاعات', k: 'total_deductions', num: 1 }, { t: 'صافي الراتب', f: r => h('b', null, fmt(r.net)), csv: r => r.net }];
     const edit = (r) => { const f = formGrid([{ k: 'ot_hours', t: 'عدد الساعات الإضافية', type: 'number' }, { k: 'fridays', t: 'عدد الجمع (أيام الجمعة المشتغلة)', type: 'number' }, { k: 'advances', t: 'السلف', type: 'number' }, { k: 'deduction', t: 'الخصم (إنتاج - استئذان)', type: 'number' }], r);
       modal('مدخلات مرتب: ' + r.name, f.el, [{ t: 'حفظ', kind: 'pri', fn: async (c) => { await POST('/payroll', { ...f.get(), ym, emp_id: r.emp_id }); c(); toast('تم الحفظ'); render(); } }]); };
-    const full = [...cols, canW() ? { t: '', f: r => btn('مدخلات', () => edit(r), 'sm') } : null].filter(Boolean);
+    const full = [...cols, { t: '', f: r => btn('🖨 قسيمة', () => printPayslips([r], ym), 'sm') }, canW() ? { t: '', f: r => btn('مدخلات', () => edit(r), 'sm') } : null].filter(Boolean);
     const doc = h('div', { class: 'print-doc' }, coHead('كشف مرتبات شهر ' + ym), table(cols, rows, { foot: [null, 'الإجمالي', null, fmt(s('salary')), null, null, null, null, fmt(s('friday_value')), fmt(s('ot_value')), fmt(s('gross')), fmt(s('advances')), null, fmt(s('deduction')), fmt(s('total_deductions')), fmt(s('net'))] }));
-    root.append(pageHead('المرتبات', btn('🖨 طباعة', () => printEl('كشف المرتبات', doc)), btn('⬇ تصدير Excel (CSV)', () => download('مرتبات ' + ym + '.csv', csvOf(cols, rows)))),
+    root.append(pageHead('المرتبات', btn('🖨 طباعة', () => printEl('كشف المرتبات', doc)), btn('🧾 كل القسائم', () => printPayslips(rows, ym)), btn('⬇ تصدير Excel (CSV)', () => download('مرتبات ' + ym + '.csv', csvOf(cols, rows)))),
       h('div', { class: 'filters' }, ymBar(ym, v => { ym = v; render(); })),
       h('div', { class: 'kpis' }, kpi('إجمالي المستحق', fmt(s('gross'))), kpi('إجمالي الاستقطاعات', fmt(s('total_deductions'))), kpi('صافي المرتبات', fmt(s('net')))),
       note('الأجر اليومي = الراتب ÷ ' + d.params.days_in_month + ' | قيمة الساعة = اليومي ÷ ' + d.params.hours_per_day + ' | الإضافي = ساعات × قيمة الساعة × ' + d.params.ot_mult + ' | الجمعة = اليومي × عدد الجمع × ' + d.params.friday_mult + ' | الصافي = أيام الحضور × اليومي + الجمع + الإضافي - (السلف + الخصم). الغياب لا يُخصم مرة ثانية لأن الراتب محسوب على أيام الحضور فقط.'),
