@@ -228,3 +228,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .offline-bar{position:fixed;bottom:0;left:0;right:0;background:#8a2412;color:#fff;text-align:center;padding:8px;font-size:13px;z-index:99998;transform:translateY(110%);transition:transform .3s}.offline-bar.on{transform:none}
 @media(max-width:900px){.login-clock{position:static;margin:14px auto 0;width:max-content}.land-f{flex-wrap:wrap;justify-content:center;text-align:center}}
 @media print{.sclock,.offline-bar,.side-copy{display:none!important}}
+
+/* accounting */
+.gl-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin:6px 0}.gl-row select,.gl-row input,.rng input{padding:8px 10px;border:1px solid var(--line,#d8d4c6);border-radius:10px;font:inherit;background:#fff}
+.gl-tot{margin-top:10px;font-weight:800}.rng{display:flex;gap:8px;align-items:center;margin:8px 0 14px;flex-wrap:wrap}
+.page-head+.panel .ph .btn{margin-inline-start:12px}h3{margin:18px 0 8px;font-size:18px}
