@@ -419,6 +419,7 @@ async function route(req, url, body) {
   if (head === 'login' && m === 'POST') return login(body, req.socket.remoteAddress || 'ip');
   const u = await auth(req);
   const id = parts[1] && /^\d+$/.test(parts[1]) ? +parts[1] : null;
+  await require('./wb2').lockCheck(head, req, id, body);
   if (head === 'me') return { user: pub(u.raw), settings: await C.getSettings() };
   if (head === 'password' && m === 'POST') {
     if (!C.checkPw(String(body.old || ''), u.raw.pass_hash)) throw bad('كلمة المرور الحالية غير صحيحة');
