@@ -21,11 +21,13 @@ async function ensure() {
   if (ready) return;
   for (const s of SCH) await C.db().query(s);
   for (const a of EXTRA_ACC) await C.db().query('INSERT IGNORE INTO gl_accounts(code,name,type) VALUES(?,?,?)', a);
+  try { await C.db().query('ALTER TABLE inv_moves ADD COLUMN reversed_by INT NULL'); } catch (e) { /* exists */ }
   ready = true;
 }
 const accId = async (code) => { const [a] = await Q('SELECT id FROM gl_accounts WHERE code=?', [code]); if (!a) throw bad('حساب ' + code + ' غير موجود في الدليل'); return a.id; };
 
-async function create(u, body) {
+/* Validate and normalize an invoice payload. Shared by create and update. */
+async function prepare(body) {
   const type = String(body.type || ''); if (!TYPES.includes(type)) throw bad('نوع الفاتورة غير صحيح');
   if (!isDate(body.date)) throw bad('التاريخ غير صحيح'); await ACC.lockGuard(body.date);
   const isSale = type !== 'purchase';
@@ -55,70 +57,161 @@ async function create(u, body) {
   const discount = r2(lines.reduce((s, l) => s + l.qty * l.price * (l.disc / 100), 0));
   const vat = r2(base * vat_rate / 100), total = r2(base + vat);
   if (!(total > 0)) throw bad('إجمالي الفاتورة يجب أن يكون أكبر من صفر');
+  return { type, date: body.date, isSale, client_id, supplier_id, settle, branch_id, wh_id, vat_rate, lines, base, discount, vat, total, notes: String(body.notes || '').slice(0, 250) };
+}
 
+/* Post GL entries and inventory moves for an invoice. Shared by create and update.
+   Returns the header GL entry id (or null). */
+async function effects(conn, u, invId, no, d) {
+  const { type, date, isSale, client_id, supplier_id, settle, wh_id, lines, base, vat, total } = d;
   const [cash, ar, ap, rev, ret, invA, vin, vout, exp] = await Promise.all(['1100', '1200', '2100', '4100', '4200', '1300', '1450', '2500', '5200'].map(accId));
+  let entry_id = null;
+  if (type === 'quote') { /* no GL for proforma */ }
+  else if (isSale) {
+    const ls = [];
+    if (type === 'return') {
+      ls.push({ account_id: ret, debit: base });
+      if (vat > 0) ls.push({ account_id: vout, debit: vat });
+      ls.push(settle === 'credit' ? { account_id: ar, credit: total, client_id } : { account_id: cash, credit: total });
+    } else {
+      ls.push(type === 'credit' ? { account_id: ar, debit: total, client_id } : { account_id: cash, debit: total });
+      ls.push({ account_id: rev, credit: base });
+      if (vat > 0) ls.push({ account_id: vout, credit: vat });
+    }
+    const r = await ACC.post(conn, date, (type === 'return' ? 'مرتجع مبيعات ' : 'فاتورة مبيعات ') + no, 'normal', ls, { source: 'sinv', source_id: invId, uid: u.id });
+    entry_id = r.id;
+    if (lines.some(l => l.item_id)) {
+      const cards = (await INV.compute()).cards;
+      for (const l of lines) {
+        if (!l.item_id) continue;
+        if (type === 'return') {
+          const card = cards[l.item_id] || []; let q = 0, v = 0; card.forEach(c => { q += c.signed; v += c.signed * c.cost; });
+          const avg = q > 0 ? r2(v / q) : 0;
+          const [mr] = await conn.query('INSERT INTO inv_moves(date,item_id,wh_id,kind,qty,unit_cost,ref,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?)', [date, l.item_id, wh_id, 'in', l.qty, avg, no, 'مرتجع مبيعات', u.id]);
+          if (avg > 0) await ACC.post(conn, date, 'إرجاع مخزون مرتجع ' + no, 'normal', [{ account_id: invA, debit: r2(avg * l.qty) }, { account_id: exp, credit: r2(avg * l.qty) }], { source: 'invmove', source_id: mr.insertId, uid: u.id });
+        } else {
+          await conn.query('INSERT INTO inv_moves(date,item_id,wh_id,kind,qty,unit_cost,ref,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?)', [date, l.item_id, wh_id, 'out', l.qty, 0, no, 'فاتورة مبيعات', u.id]);
+        }
+      }
+    }
+  } else {
+    const itemLines = lines.filter(l => l.item_id), svcBase = r2(lines.filter(l => !l.item_id).reduce((s, l) => s + l.total, 0));
+    for (const l of itemLines) {
+      const [mr] = await conn.query('INSERT INTO inv_moves(date,item_id,wh_id,kind,qty,unit_cost,ref,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?)', [date, l.item_id, wh_id, 'in', l.qty, l.price, no, 'فاتورة شراء', u.id]);
+      const cr = settle === 'credit' ? { account_id: ap, credit: l.total, supplier_id } : { account_id: cash, credit: l.total };
+      await ACC.post(conn, date, 'توريد مخزون فاتورة ' + no, 'normal', [{ account_id: invA, debit: l.total }, cr], { source: 'invmove', source_id: mr.insertId, uid: u.id });
+    }
+    if (svcBase > 0 || vat > 0) {
+      const ls = [];
+      if (svcBase > 0) ls.push({ account_id: exp, debit: svcBase });
+      if (vat > 0) ls.push({ account_id: vin, debit: vat });
+      const amt = r2(svcBase + vat);
+      ls.push(settle === 'credit' ? { account_id: ap, credit: amt, supplier_id } : { account_id: cash, credit: amt });
+      const r = await ACC.post(conn, date, 'فاتورة شراء ' + no, 'normal', ls, { source: 'sinv', source_id: invId, uid: u.id });
+      entry_id = r.id;
+    }
+  }
+  return entry_id;
+}
 
+/* Reverse every accounting and stock effect of a posted invoice, dated today.
+   Each original move gets a counter-move; every GL entry (header + per-move,
+   posting it first if the sweep has not run yet) gets an exact reversal entry.
+   Reversal entries carry source='invmove'/source_id of the counter-move so the
+   autoPost sweep never double-posts them. */
+async function reverseInvoice(conn, u, inv) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+  await ACC.lockGuard(today);
+  const [invA, ap, exp] = await Promise.all(['1300', '2100', '5200'].map(accId));
+  if (inv.entry_id) {
+    const [ls] = await conn.query('SELECT account_id,client_id,supplier_id,debit,credit FROM gl_lines WHERE entry_id=?', [inv.entry_id]);
+    if (ls.length) await ACC.post(conn, today, 'عكس قيد فاتورة ' + inv.no, 'normal', ls.map(l => ({ account_id: l.account_id, client_id: l.client_id, supplier_id: l.supplier_id, debit: l.credit, credit: l.debit })), { source: 'sinv', source_id: inv.id, reversed_of: inv.entry_id, uid: u.id });
+  }
+  const [moves] = await conn.query("SELECT * FROM inv_moves WHERE ref=? AND notes NOT LIKE 'عكس%' AND kind IN ('in','out') AND reversed_by IS NULL", [inv.no]);
+  if (!moves.length) return;
+  const cards = (await INV.compute()).cards;
+  const byId = {}; for (const k of Object.keys(cards)) for (const mv of cards[k]) byId[mv.id] = mv;
+  for (const m of moves) {
+    const [gl] = await conn.query("SELECT id FROM gl_entries WHERE source='invmove' AND source_id=?", [m.id]);
+    const card = byId[m.id];
+    const cost = m.kind === 'in' ? r2(m.unit_cost) : r2(card ? card.cost : 0);
+    const v = r2(Number(m.qty) * cost);
+    if (!gl.length && v > 0) {
+      // the sweep has not posted this move yet: post it now so its reversal is exact
+      if (m.kind === 'in') await ACC.post(conn, m.date, 'توريد مخزون ' + inv.no, 'normal', [{ account_id: invA, debit: v }, { account_id: ap, credit: v }], { source: 'invmove', source_id: m.id, uid: u.id });
+      else await ACC.post(conn, m.date, 'صرف مخزون ' + inv.no, 'normal', [{ account_id: exp, debit: v }, { account_id: invA, credit: v }], { source: 'invmove', source_id: m.id, uid: u.id });
+    }
+    const [eidRow] = await conn.query("SELECT id FROM gl_entries WHERE source='invmove' AND source_id=?", [m.id]);
+    const flipKind = m.kind === 'in' ? 'out' : 'in';
+    const [cm] = await conn.query('INSERT INTO inv_moves(date,item_id,wh_id,kind,qty,unit_cost,ref,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?)', [today, m.item_id, m.wh_id, flipKind, m.qty, cost, inv.no, 'عكس فاتورة ' + inv.no, u.id]);
+    await conn.query('UPDATE inv_moves SET reversed_by=? WHERE id=?', [cm.insertId, m.id]);
+    if (eidRow.length && v > 0) {
+      const [ls] = await conn.query('SELECT account_id,client_id,supplier_id,debit,credit FROM gl_lines WHERE entry_id=?', [eidRow[0].id]);
+      await ACC.post(conn, today, 'عكس حركة مخزون فاتورة ' + inv.no, 'normal', ls.map(l => ({ account_id: l.account_id, client_id: l.client_id, supplier_id: l.supplier_id, debit: l.credit, credit: l.debit })), { source: 'invmove', source_id: cm.insertId, reversed_of: eidRow[0].id, uid: u.id });
+    }
+  }
+}
+
+async function create(u, body) {
+  const d = await prepare(body);
   const conn = await C.db().getConnection();
   try {
     await conn.beginTransaction();
-    const [[nn]] = await conn.query('SELECT COALESCE(MAX(CAST(SUBSTRING(no,?) AS UNSIGNED)),0)+1 n FROM sales_invoices WHERE type=?', [PREFIX[type].length + 2, type]);
-    const no = PREFIX[type] + '-' + String(nn.n).padStart(5, '0');
+    const [[nn]] = await conn.query('SELECT COALESCE(MAX(CAST(SUBSTRING(no,?) AS UNSIGNED)),0)+1 n FROM sales_invoices WHERE type=?', [PREFIX[d.type].length + 2, d.type]);
+    const no = PREFIX[d.type] + '-' + String(nn.n).padStart(5, '0');
     const [ir] = await conn.query('INSERT INTO sales_invoices(no,type,date,client_id,supplier_id,branch_id,settle,wh_id,ref_id,status,base,discount,vat_rate,vat,total,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      [no, type, body.date, client_id, supplier_id, branch_id, settle, wh_id, +body.ref_id || null, type === 'quote' ? 'open' : 'posted', base, discount, vat_rate, vat, total, String(body.notes || '').slice(0, 250), u.id]);
+      [no, d.type, d.date, d.client_id, d.supplier_id, d.branch_id, d.settle, d.wh_id, +body.ref_id || null, d.type === 'quote' ? 'open' : 'posted', d.base, d.discount, d.vat_rate, d.vat, d.total, d.notes, u.id]);
     const invId = ir.insertId;
-    for (const l of lines) await conn.query('INSERT INTO sales_invoice_lines(invoice_id,item_id,description,qty,price,disc,total) VALUES(?,?,?,?,?,?,?)', [invId, l.item_id, l.description.slice(0, 250), l.qty, l.price, l.disc, l.total]);
-
-    let entry_id = null;
-    if (type === 'quote') { /* no GL for proforma */ }
-    else if (isSale) {
-      const ls = [];
-      if (type === 'return') {
-        ls.push({ account_id: ret, debit: base });
-        if (vat > 0) ls.push({ account_id: vout, debit: vat });
-        ls.push(settle === 'credit' ? { account_id: ar, credit: total, client_id } : { account_id: cash, credit: total });
-      } else {
-        ls.push(type === 'credit' ? { account_id: ar, debit: total, client_id } : { account_id: cash, debit: total });
-        ls.push({ account_id: rev, credit: base });
-        if (vat > 0) ls.push({ account_id: vout, credit: vat });
-      }
-      const r = await ACC.post(conn, body.date, (type === 'return' ? 'مرتجع مبيعات ' : 'فاتورة مبيعات ') + no, 'normal', ls, { source: 'sinv', source_id: invId, uid: u.id });
-      entry_id = r.id;
-      if (lines.some(l => l.item_id)) {
-        const cards = (await INV.compute()).cards;
-        for (const l of lines) {
-          if (!l.item_id) continue;
-          if (type === 'return') {
-            const card = cards[l.item_id] || []; let q = 0, v = 0; card.forEach(c => { q += c.signed; v += c.signed * c.cost; });
-            const avg = q > 0 ? r2(v / q) : 0;
-            const [mr] = await conn.query('INSERT INTO inv_moves(date,item_id,wh_id,kind,qty,unit_cost,ref,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?)', [body.date, l.item_id, wh_id, 'in', l.qty, avg, no, 'مرتجع مبيعات', u.id]);
-            if (avg > 0) await ACC.post(conn, body.date, 'إرجاع مخزون مرتجع ' + no, 'normal', [{ account_id: invA, debit: r2(avg * l.qty) }, { account_id: exp, credit: r2(avg * l.qty) }], { source: 'invmove', source_id: mr.insertId, uid: u.id });
-          } else {
-            await conn.query('INSERT INTO inv_moves(date,item_id,wh_id,kind,qty,unit_cost,ref,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?)', [body.date, l.item_id, wh_id, 'out', l.qty, 0, no, 'فاتورة مبيعات', u.id]);
-          }
-        }
-      }
-    } else {
-      const itemLines = lines.filter(l => l.item_id), svcBase = r2(lines.filter(l => !l.item_id).reduce((s, l) => s + l.total, 0));
-      for (const l of itemLines) {
-        const [mr] = await conn.query('INSERT INTO inv_moves(date,item_id,wh_id,kind,qty,unit_cost,ref,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?)', [body.date, l.item_id, wh_id, 'in', l.qty, l.price, no, 'فاتورة شراء', u.id]);
-        const cr = settle === 'credit' ? { account_id: ap, credit: l.total, supplier_id } : { account_id: cash, credit: l.total };
-        await ACC.post(conn, body.date, 'توريد مخزون فاتورة ' + no, 'normal', [{ account_id: invA, debit: l.total }, cr], { source: 'invmove', source_id: mr.insertId, uid: u.id });
-      }
-      if (svcBase > 0 || vat > 0) {
-        const ls = [];
-        if (svcBase > 0) ls.push({ account_id: exp, debit: svcBase });
-        if (vat > 0) ls.push({ account_id: vin, debit: vat });
-        const amt = r2(svcBase + vat);
-        ls.push(settle === 'credit' ? { account_id: ap, credit: amt, supplier_id } : { account_id: cash, credit: amt });
-        const r = await ACC.post(conn, body.date, 'فاتورة شراء ' + no, 'normal', ls, { source: 'sinv', source_id: invId, uid: u.id });
-        entry_id = r.id;
-      }
-    }
+    for (const l of d.lines) await conn.query('INSERT INTO sales_invoice_lines(invoice_id,item_id,description,qty,price,disc,total) VALUES(?,?,?,?,?,?,?)', [invId, l.item_id, l.description.slice(0, 250), l.qty, l.price, l.disc, l.total]);
+    const entry_id = await effects(conn, u, invId, no, d);
     if (entry_id) await conn.query('UPDATE sales_invoices SET entry_id=? WHERE id=?', [entry_id, invId]);
-    if (type !== 'quote' && +body.ref_id) await conn.query("UPDATE sales_invoices SET status='converted' WHERE id=? AND type='quote'", [+body.ref_id]);
+    if (d.type !== 'quote' && +body.ref_id) await conn.query("UPDATE sales_invoices SET status='converted' WHERE id=? AND type='quote'", [+body.ref_id]);
     await conn.commit();
     await C.audit(u, 'create', 'sales_invoice', invId, no);
-    return { ok: true, id: invId, no, total };
+    return { ok: true, id: invId, no, total: d.total };
+  } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
+}
+
+/* Edit a saved invoice: reverse every old effect, then repost with the new data.
+   The number and type never change. Quotes (open) edit without any reversal. */
+async function update(u, body) {
+  const id = +body.id; if (!id) throw bad('الفاتورة غير محددة');
+  const [inv] = await Q('SELECT * FROM sales_invoices WHERE id=?', [id]);
+  if (!inv) throw new HttpError(404, 'الفاتورة غير موجودة');
+  if (inv.status === 'canceled') throw bad('الفاتورة ملغاة ولا يمكن تعديلها');
+  if (inv.type === 'quote' && inv.status !== 'open') throw bad('عرض السعر محوَّل ولا يمكن تعديله');
+  const d = await prepare(Object.assign({}, body, { type: inv.type }));
+  const conn = await C.db().getConnection();
+  try {
+    await conn.beginTransaction();
+    if (inv.type !== 'quote') await reverseInvoice(conn, u, inv);
+    await conn.query('UPDATE sales_invoices SET date=?,client_id=?,supplier_id=?,branch_id=?,settle=?,wh_id=?,base=?,discount=?,vat_rate=?,vat=?,total=?,notes=? WHERE id=?',
+      [d.date, d.client_id, d.supplier_id, d.branch_id, d.settle, d.wh_id, d.base, d.discount, d.vat_rate, d.vat, d.total, d.notes, id]);
+    await conn.query('DELETE FROM sales_invoice_lines WHERE invoice_id=?', [id]);
+    for (const l of d.lines) await conn.query('INSERT INTO sales_invoice_lines(invoice_id,item_id,description,qty,price,disc,total) VALUES(?,?,?,?,?,?,?)', [id, l.item_id, l.description.slice(0, 250), l.qty, l.price, l.disc, l.total]);
+    const entry_id = await effects(conn, u, id, inv.no, d);
+    await conn.query('UPDATE sales_invoices SET entry_id=? WHERE id=?', [entry_id, id]);
+    await conn.commit();
+    await C.audit(u, 'edit', 'sales_invoice', id, inv.no + ' إجمالي ' + d.total);
+    return { ok: true, id, no: inv.no, total: d.total };
+  } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
+}
+
+/* Cancel (delete) an invoice: full accounting + stock reversal, audit-kept. */
+async function cancel(u, body) {
+  const id = +body.id; if (!id) throw bad('الفاتورة غير محددة');
+  const [inv] = await Q('SELECT * FROM sales_invoices WHERE id=?', [id]);
+  if (!inv) throw new HttpError(404, 'الفاتورة غير موجودة');
+  if (inv.status === 'canceled') throw bad('الفاتورة ملغاة بالفعل');
+  if (inv.type === 'quote' && inv.status !== 'open') throw bad('عرض السعر محوَّل — ألغِ الفاتورة الناتجة عنه أولًا');
+  const conn = await C.db().getConnection();
+  try {
+    await conn.beginTransaction();
+    if (inv.type !== 'quote') await reverseInvoice(conn, u, inv);
+    await conn.query("UPDATE sales_invoices SET status='canceled' WHERE id=?", [id]);
+    await conn.commit();
+    await C.audit(u, 'cancel', 'sales_invoice', id, inv.no);
+    return { ok: true, id, no: inv.no };
   } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
 }
 
@@ -157,6 +250,8 @@ async function api(head, req, u, id, body, q, parts) {
     return { invoice: v, lines, entry };
   }
   if (sub === 'create') { write(); if (m !== 'POST') throw new HttpError(405, 'غير مسموح'); return create(u, body); }
+  if (sub === 'update') { write(); if (m !== 'POST') throw new HttpError(405, 'غير مسموح'); return update(u, body); }
+  if (sub === 'cancel') { write(); if (m !== 'POST') throw new HttpError(405, 'غير مسموح'); return cancel(u, body); }
   if (sub === 'convert') { write(); if (m !== 'POST') throw new HttpError(405, 'غير مسموح'); return convert(u, body); }
   if (sub === 'branches') {
     if (m === 'GET') return Q('SELECT b.*, (SELECT COUNT(*) FROM sales_invoices v WHERE v.branch_id=b.id) invoices FROM branches b ORDER BY b.code');
