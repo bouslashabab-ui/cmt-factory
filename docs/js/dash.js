@@ -34,6 +34,13 @@
   }
   MZ.pages.home = P.home = async () => {
     const root = await orig(); const extra = h('div', { class: 'dash-x' });
+    const hr = new Date().getHours(), greet = hr < 12 ? 'صباح الخير' : hr < 18 ? 'مساء الخير' : 'مساء النور';
+    const hero = h('div', { class: 'clock-hero' },
+      h('div', { class: 'sclock calx bigclock', title: 'اضغط للتبديل بين التاريخ الميلادي والهجري' }),
+      h('div', { class: 'ch-tx' },
+        h('div', { class: 'ch-g' }, greet + (MZ.user && MZ.user.name ? ' يا ' + MZ.user.name : '')),
+        h('div', { class: 'ch-h' }, 'اضغط على الساعة للتبديل بين التاريخ الميلادي والهجري')));
+    root.prepend(hero);
     const y = new Date().getFullYear(); const jobs = await Promise.allSettled([GET('/gl/statements?from=' + y + '-01-01&to=' + today()), GET('/inv/stock'), monthly()]);
     try { if (jobs[2].status === 'fulfilled') extra.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'الإيرادات والمصروفات آخر 6 شهور'), chart(jobs[2].value))); } catch (e) {}
     const st = jobs[0].status === 'fulfilled' ? jobs[0].value : null, inv = jobs[1].status === 'fulfilled' ? jobs[1].value : null;
