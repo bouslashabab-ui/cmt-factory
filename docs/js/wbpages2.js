@@ -47,7 +47,7 @@ P.assistant = async () => {
 
 /* ---------- لوحة مراحل الإنتاج ---------- */
 P.stages_board = async () => {
-  const d = await GET('/stages'); const root = h('div');
+  const d = await GET('/stages') || {}; if (!Array.isArray(d.rows)) d.rows = []; if (!Array.isArray(d.stages)) d.stages = []; const root = h('div');
   const col = (st) => { const items = d.rows.filter(r => r.stage === st); return h('div', { class: 'kcol' }, h('div', { class: 'kh' }, st, h('span', null, items.length)), items.map(r => {
     const i = d.stages.indexOf(st); return h('div', { class: 'kcard' + (r.days_in_stage > 10 && st !== 'تم التسليم' ? ' late' : '') }, h('b', null, r.code), h('div', null, r.client_name + ' | ' + (r.model_name || '')), h('small', null, r.pieces + ' قطعة | مسلّم ' + r.delivered + ' | ' + r.days_in_stage + ' يوم'),
       canW() ? h('div', { class: 'kmv' }, i > 0 ? btn('→ ' + d.stages[i - 1], async () => { await PUT('/stages/' + r.id, { stage: d.stages[i - 1] }); openPage('stages_board'); }, 'sm') : '', i < d.stages.length - 1 ? btn(d.stages[i + 1] + ' ←', async () => { await PUT('/stages/' + r.id, { stage: d.stages[i + 1] }); openPage('stages_board'); }, 'sm pri') : '') : ''); })); };
@@ -74,13 +74,13 @@ P.expenses = async () => {
   await render(); return root;
 };
 P.profit = async () => {
-  const d = await GET('/profit'); const net = d.totals.revenue - d.totals.expenses;
+  const d = await GET('/profit') || {}; if (!d.totals) d.totals = {}; const net = (+d.totals.revenue || 0) - (+d.totals.expenses || 0);
   return h('div', null, pageHead('📈 ربحية أوامر القص', btn('⬇ تصدير', () => exportChooser()), btn('🖨 طباعة', printPage)),
     h('div', { class: 'kpis' }, kpi('الإيراد (تكلفة التصنيع على العملاء)', fmt(d.totals.revenue)), kpi('إجمالي المصروفات', fmt(d.totals.expenses)), kpi('الربح الصافي', fmt(net)), kpi('مصروفات عامة غير موزعة', fmt(d.general_expenses))),
     table([{ t: 'كود القصة', k: 'code' }, { t: 'العميل', k: 'client_name' }, { t: 'الموديل', k: 'model_name' }, { t: 'القطع', f: r => r.pieces, cls: 'num' }, { t: 'الإيراد', f: r => fmt(r.revenue), cls: 'num' }, { t: 'المصروفات', f: r => fmt(r.expenses), cls: 'num' }, { t: 'الربح', f: r => h('b', { class: r.profit < 0 ? 'neg' : 'pos' }, fmt(r.profit)), cls: 'num' }, { t: 'الهامش %', f: r => r.margin === null ? '' : fmt(r.margin, 1), cls: 'num' }, { t: 'ربح القطعة', f: r => r.per_piece === null ? '' : fmt(r.per_piece), cls: 'num' }], d.rows, { empty: 'لا توجد أوامر قص' }));
 };
 P.aging = async () => {
-  const rows = await GET('/aging'); const s = (k) => rows.reduce((a, r) => a + r[k], 0);
+  let rows = await GET('/aging'); if (!Array.isArray(rows)) rows = []; const s = (k) => rows.reduce((a, r) => a + r[k], 0);
   return h('div', null, pageHead('⏳ أعمار الديون', btn('⬇ تصدير', () => exportChooser()), btn('🖨 طباعة', printPage)),
     h('div', { class: 'kpis' }, kpi('إجمالي المتبقي على العملاء', fmt(s('total'))), kpi('أكثر من 60 يوماً', fmt(s('b60') + s('b90')))),
     h('div', { class: 'panel' }, h('div', { class: 'pb' }, 'تُحسب بتوزيع المقبوضات على أقدم أوامر القص أولاً، ثم يُوزَّع المتبقي حسب عمر كل أمر من تاريخه.')),
@@ -172,7 +172,7 @@ window.globalSearch = async function (q) {
 
 /* ---------- الإقفال اليومي ---------- */
 P.daily_close = async () => {
-  const dt = (MZ.dcDate || today()); const d = await GET('/daily-close?date=' + dt); const f = (n) => Number(n || 0).toLocaleString('ar-EG');
+  const dt = (MZ.dcDate || today()); const d = await GET('/daily-close?date=' + dt) || {}; ['attendance', 'production'].forEach(k => { if (!Array.isArray(d[k])) d[k] = []; }); ['deliveries', 'payments', 'expenses'].forEach(k => { if (!d[k]) d[k] = {}; ['n', 'qty', 'total'].forEach(f2 => { if (d[k][f2] === undefined) d[k][f2] = 0; }); }); if (!d.date) d.date = dt; const f = (n) => Number(n || 0).toLocaleString('ar-EG');
   const inp = h('input', { type: 'date', value: d.date, onchange: () => { MZ.dcDate = inp.value; openPage('daily_close'); } });
   const att = {}; d.attendance.forEach(a => { att[a.status] = a.n; });
   return h('div', null, pageHead('🧾 الإقفال اليومي', inp, btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
