@@ -121,3 +121,51 @@ window.printPayslips = function (rows, ym) {
   });
   printEl('قسائم المرتبات ' + ym, wrap);
 };
+
+/* Enter moves to the next field inside forms (fast numeric entry); select text on focus */
+document.addEventListener('focusin', (e) => { const t = e.target; if (t.tagName === 'INPUT' && (t.type === 'number' || t.type === 'text')) setTimeout(() => { try { t.select(); } catch (x) {} }, 0); });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.shiftKey) return; const t = e.target; if (t.tagName !== 'INPUT' || t.type === 'submit' || t.type === 'button') return;
+  const scope = t.closest('.modal, form, .grid-form') || document; const els = [...scope.querySelectorAll('input:not([type=hidden]):not([disabled]), select, textarea')].filter(x => x.offsetParent !== null);
+  const i = els.indexOf(t); if (i >= 0 && i < els.length - 1) { e.preventDefault(); els[i + 1].focus(); }
+});
+
+/* ---------- one-click backup (JSON + Excel of all data) and global search ---------- */
+window.backupAll = async function () {
+  const eps = [['clients', '/clients'], ['store', '/store'], ['orders', '/orders'], ['outs', '/outs'], ['payments', '/payments'], ['employees', '/employees'], ['expenses', '/expenses'], ['accounts', '/accounts'], ['aging', '/aging'], ['profit', '/profit']];
+  const data = {}; for (const [k, p] of eps) { try { data[k] = await GET(p); } catch (e) { data[k] = { error: String(e.message || e) }; } }
+  const day = new Date().toISOString().slice(0, 10);
+  const secs = []; const flat = (v) => (v && typeof v === 'object') ? JSON.stringify(v) : (v == null ? '' : v);
+  for (const [k, v] of Object.entries(data)) { const rows = Array.isArray(v) ? v : (v && Array.isArray(v.rows) ? v.rows : null); if (!rows || !rows.length || typeof rows[0] !== 'object') continue; const head = [...new Set(rows.flatMap(r => Object.keys(r)))]; secs.push({ title: k, head, rows: rows.map(r => head.map(c => flat(r[c]))) }); }
+  EXP.save('backup-' + day + '.json', JSON.stringify({ exported: new Date().toISOString(), data }, null, 1), 'application/json');
+  if (secs.length) EXP.save('backup-' + day + '.xlsx', EXP.xlsx(secs, 'نسخة احتياطية'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  toast('تم تنزيل النسخة الاحتياطية (JSON + Excel)');
+};
+window.globalSearch = async function (q) {
+  q = String(q || '').trim().toLowerCase(); if (!q) return;
+  const [ord, st, cl, pay] = await Promise.all(['/orders', '/store', '/clients', '/payments'].map(p => GET(p).catch(() => [])));
+  const has = (o) => JSON.stringify(Object.values(o || {})).toLowerCase().includes(q);
+  const res = [];
+  (ord || []).filter(has).slice(0, 15).forEach(r => res.push(['أمر قص', r.code + ' - ' + (r.client_name || '') + ' - ' + (r.model_name || ''), 'orders']));
+  (st || []).filter(has).slice(0, 15).forEach(r => res.push(['مخزن', (r.item_code || r.code || '') + ' - ' + (r.client_name || '') + ' - ' + (r.fabric || ''), 'store']));
+  (cl || []).filter(has).slice(0, 10).forEach(r => res.push(['عميل', (r.code || '') + ' - ' + (r.name || ''), 'clients']));
+  (pay || []).filter(has).slice(0, 10).forEach(r => res.push(['مقبوضات', (r.receipt_no || r.number || '') + ' - ' + (r.client_name || '') + ' - ' + (r.amount || ''), 'payments']));
+  const body = res.length ? h('div', null, ...res.map(([t, s, k]) => h('div', { class: 'srow', style: 'padding:8px;border-bottom:1px solid #ddd;cursor:pointer', onclick: () => { document.querySelectorAll('.modal-back').forEach(m => m.remove()); openPage(k); } }, h('b', null, t + ': '), s))) : h('div', null, 'لا توجد نتائج');
+  modal('نتائج البحث عن: ' + q, body, [{ t: 'إغلاق', fn: (c) => c() }]);
+};
+(function () { const add = () => { const tb = document.querySelector('.topbar'); if (!tb || tb.querySelector('.gsearch')) return; const inp = h('input', { class: 'gsearch', placeholder: '🔎 بحث شامل (كود/عميل/باركود)', style: 'padding:6px 10px;border-radius:8px;border:1px solid #ccc;min-width:180px', onkeydown: (e) => { if (e.key === 'Enter') { e.stopPropagation(); globalSearch(inp.value); } } }); const b = h('button', { class: 'tbn', onclick: () => backupAll() }, '💾 نسخة احتياطية'); const t = tb.querySelector('.tbn'); tb.insertBefore(b, t); tb.insertBefore(inp, b); }; new MutationObserver(add).observe(document.body, { childList: true, subtree: true }); })();
+
+/* ---------- AI helper panel (Gemini free tier; only aggregated numbers leave the server) ---------- */
+(function () {
+  const base = P.assistant;
+  P.assistant = async () => {
+    const root = await base();
+    const inp = h('input', { placeholder: 'اسأل المساعد: مثلاً "كم نسبة الهالك؟" أو "ما أهم مشكلة الآن؟"', style: 'width:70%;padding:8px;border:1px solid #ccc;border-radius:8px' });
+    const out = h('div', { style: 'margin-top:10px;white-space:pre-wrap;line-height:1.8' });
+    const go = async () => { const q = inp.value.trim(); if (!q) return; out.textContent = '... جاري التفكير'; try { const r = await POST('/ai-ask', { question: q }); out.textContent = r.answer || r.error || ''; } catch (e) { out.textContent = String(e.message || e); } };
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); go(); } });
+    root.prepend(h('div', { class: 'panel' }, h('div', { class: 'ph' }, '💬 اسأل المساعد (Gemini)'), h('div', { class: 'pb' }, inp, ' ', btn('إرسال', go, 'pri'), out, h('small', { style: 'display:block;margin-top:8px;color:#666' }, 'يُرسل إلى الذكاء الاصطناعي أرقام مجمّعة فقط (بدون أسماء عملاء أو أكواد). النسخة المجانية قد تستخدم المحتوى لتحسين خدمات جوجل.'))));
+    return root;
+  };
+  MZ.pages.assistant = P.assistant;
+})();
