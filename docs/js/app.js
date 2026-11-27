@@ -38,7 +38,7 @@ function shell() {
     h('div', { class: 'me' }, h('div', { class: 'av' }, nm.trim().charAt(0)), h('div', null, nm, h('small', null, ROLE_AR[MZ.user.role] || '')), muteBtn(), h('button', { onclick: logout }, 'خروج')));
   const main = h('div', { class: 'main' },
     h('div', { class: 'topbar' }, h('button', { class: 'burger', onclick: () => side.classList.toggle('open') }, '☰'), h('div', { class: 'tabs', id: 'tabs' }),
-      h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today' }, new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
+      h('button', { class: 'tbn', onclick: themePicker, title: 'سمات النظام' }, '🎨 السمات'), h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today' }, new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
     h('div', { id: 'desk' }));
   app.append(side, main);
   const sync = () => document.querySelectorAll('.nv').forEach(n => n.classList.toggle('on', n.getAttribute('data-k') === MZ.active));
@@ -51,7 +51,7 @@ async function boot() {
   const app = $('#app');
   if (!MZ.api) { app.textContent = 'إعداد الخادم غير موجود'; return; }
   if (MZ.token) {
-    try { const me = await GET('/me'); MZ.user = me.user; MZ.settings = me.settings; await Promise.all(['clients', 'models', 'stages'].map(n => load(n, true))); shell(); return; }
+    try { const me = await GET('/me'); MZ.user = me.user; MZ.settings = me.settings; if (me.user.theme && me.user.theme !== MZ.theme) applyTheme(me.user.theme); await Promise.all(['clients', 'models', 'stages'].map(n => load(n, true))); shell(); return; }
     catch (e) { sessionStorage.removeItem('cmt_tok'); MZ.token = null; }
   }
   loginScreen();
