@@ -404,10 +404,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .lts button:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}
 .lts button.on{background:#fff;color:#0f1437;border-color:#fff}
 @media(max-width:900px){
-  #app .land .login-clock{position:static;margin:14px auto 0;order:-1;width:max-content;padding:12px 22px 14px}
-  #app .land .login-clock .ck-t{font-size:34px}
-  #app .land{padding-bottom:64px}
-  .lts{bottom:8px;padding:4px 8px}
+  #app .land .login-clock{position:static;margin:16px auto 0;order:-1;width:max-content;padding:12px 22px 14px;overflow:visible}
+  #app .land .login-clock .ck-t{font-size:34px;overflow:visible}
+  #app .land .login-clock .ck-s{height:1.35em;line-height:1.35em;overflow:visible}
+  .lts{position:static;transform:none;margin:14px auto 20px;max-width:94vw;padding:5px 10px}
   .lts button{padding:4px 9px;font-size:11px}
 }
 /* ---- design: classic ---- */
