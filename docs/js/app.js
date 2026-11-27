@@ -30,38 +30,69 @@ function buildTopnav(nm) {
   const PAGE2SEC = {}; MENUS.forEach(([t, items]) => items.forEach(i => { PAGE2SEC[i[2]] = t; }));
   const secOf = (k) => PAGE2SEC[k] || (String(k).startsWith('sinv_view_') || String(k).startsWith('sinv_edit_') ? PAGE2SEC.sinv_list : null);
   const adminOk = (i) => i[3] !== 'admin' || MZ.user.role === 'admin';
+  const SHORT = { 'المحاسبة (الدورة المحاسبية)': 'المحاسبة' };
+  const MORE = 'المزيد';
   let openSec = null;
   const panel = h('div', { class: 'tn-panel', role: 'menu' });
-  const secBtns = {}; const navBtns = [];
+  const allSecs = MENUS.filter(([t, items]) => items.filter(adminOk).length).map(([t, items]) => [t, items.filter(adminOk)]);
+  let visSecs = allSecs.slice(), overSecs = [];
+  let secBtns = {}; let navBtns = [];
+  const homeBtn = h('button', { class: 'tn-sec tn-home', onclick: () => { closePanel(); openPage('home'); } }, '🏠 الرئيسية');
   function closePanel() { openSec = null; panel.classList.remove('open'); Object.values(secBtns).forEach(b => b.setAttribute('aria-expanded', 'false')); }
+  const itemBtn = (i) => h('button', { class: 'tn-item', role: 'menuitem', onclick: () => { closePanel(); openPage(i[2]); } }, h('i', null, i[0]), h('span', null, i[1]));
   function openPanel(t, items) {
     panel.innerHTML = '';
-    panel.append(h('div', { class: 'tn-grid' }, items.map(i => h('button', { class: 'tn-item', role: 'menuitem', onclick: () => { closePanel(); openPage(i[2]); } }, h('i', null, i[0]), h('span', null, i[1])))));
+    if (t === MORE) {
+      panel.append(h('div', { class: 'tn-grid tn-ovgrid' }, overSecs.map(([gt, gitems]) =>
+        h('div', { class: 'tn-ovg' }, h('h4', null, gt), h('div', { class: 'tn-ovitems' }, gitems.map(itemBtn))))));
+    } else {
+      panel.append(h('div', { class: 'tn-grid' }, items.map(itemBtn)));
+    }
     panel.classList.add('open'); openSec = t;
     Object.keys(secBtns).forEach(k => secBtns[k].setAttribute('aria-expanded', k === t ? 'true' : 'false'));
   }
-  const mkSecBtn = (t, items) => {
+  const mkSecBtn = (t, items, label) => {
     const b = h('button', { class: 'tn-sec', 'aria-expanded': 'false', 'aria-haspopup': 'true',
       onclick: (e) => { e.stopPropagation(); if (openSec === t) closePanel(); else openPanel(t, items); },
       onkeydown: (e) => {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const i = navBtns.indexOf(b); const n = navBtns[(i + (e.key === 'ArrowLeft' ? 1 : -1) + navBtns.length) % navBtns.length]; n.focus(); }
         else if (e.key === 'Escape') { closePanel(); }
         else if (e.key === 'ArrowDown') { e.preventDefault(); if (openSec !== t) openPanel(t, items); const f = panel.querySelector('.tn-item'); if (f) f.focus(); }
-      } }, t, h('i', { class: 'tn-car' }, '▾'));
+      } }, label || t, h('i', { class: 'tn-car' }, '▾'));
     secBtns[t] = b; navBtns.push(b); return b;
   };
-  const homeBtn = h('button', { class: 'tn-sec tn-home', onclick: () => { closePanel(); openPage('home'); } }, '🏠 الرئيسية');
-  navBtns.push(homeBtn);
+  const secsNav = h('nav', { class: 'tn-secs', 'aria-label': 'الأقسام' });
+  function renderSecs() {
+    secBtns = {}; navBtns = [homeBtn];
+    secsNav.innerHTML = '';
+    secsNav.append(homeBtn, ...visSecs.map(([t, items]) => mkSecBtn(t, items, SHORT[t] || t)));
+    if (overSecs.length) secsNav.append(mkSecBtn(MORE, [], '⋮ ' + MORE));
+  }
+  renderSecs();
+  function layout() {
+    if (!bar.isConnected) return;
+    visSecs = allSecs.slice(); overSecs = []; renderSecs();
+    let guard = 0;
+    while (secsNav.scrollWidth > secsNav.clientWidth && visSecs.length > 1 && guard++ < 12) {
+      overSecs.unshift(visSecs.pop());
+      renderSecs();
+    }
+    if (openSec === MORE && !overSecs.length) closePanel();
+  }
   const bar = h('div', { class: 'topnav' },
     h('div', { class: 'brand tn-brand', html: LOGO + '<div><h1>' + APP_NAME + '</h1></div>' }),
-    h('nav', { class: 'tn-secs', 'aria-label': 'الأقسام' }, homeBtn, MENUS.filter(([t, items]) => items.filter(adminOk).length).map(([t, items]) => mkSecBtn(t, items.filter(adminOk)))),
+    secsNav,
     h('div', { class: 'today' }, ''),
     h('div', { class: 'tn-me' }, muteBtn(), h('span', { class: 'tn-nm' }, nm), h('button', { class: 'tn-out', onclick: logout }, 'خروج')));
   document.addEventListener('click', (e) => { if (openSec && !e.target.closest('.topnav') && !e.target.closest('.tn-panel')) closePanel(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+  let rzT = null;
+  window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(layout, 150); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => layout());
+  window.__tnLayout = layout;
   window.updateTopnav = () => {
     const sec = secOf(MZ.active);
-    Object.keys(secBtns).forEach(k => secBtns[k].classList.toggle('on', k === sec));
+    Object.keys(secBtns).forEach(k => secBtns[k].classList.toggle('on', k === sec || (sec && overSecs.some(([gt]) => gt === sec) && k === MORE)));
     homeBtn.classList.toggle('on', MZ.active === 'home');
   };
   return [bar, panel];
@@ -85,6 +116,7 @@ function shell() {
       h('button', { class: 'tbn', onclick: themePicker, title: 'سمات النظام' }, '🎨 السمات'), h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today today-plain' }, new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
     h('div', { id: 'desk' }));
   app.append(...buildTopnav(nm), side, main);
+  requestAnimationFrame(() => window.__tnLayout && window.__tnLayout());
   const sync = () => document.querySelectorAll('.nv').forEach(n => n.classList.toggle('on', n.getAttribute('data-k') === MZ.active));
   new MutationObserver(sync).observe($('#tabs'), { subtree: true, childList: true, attributes: true });
   openWin('home', 'الرئيسية', () => MZ.pages.home());
