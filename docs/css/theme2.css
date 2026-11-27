@@ -97,7 +97,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(
 @keyframes fadeup{from{opacity:0;transform:translateY(6px)}}
 .today.sclock{padding:8px 20px 10px;border-radius:16px;font-size:15px;min-width:210px}
 .today.sclock .ck-t{font-size:30px;color:#fff}.today.sclock .ck-d{font-size:14px}
-.login-clock{padding:14px 28px 16px;border-radius:22px;top:22px;left:26px;background:rgba(15,20,55,.78);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.14)}
+.login-clock{position:absolute;z-index:5;padding:14px 28px 16px;border-radius:22px;top:22px;left:26px;background:rgba(15,20,55,.78);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.14)}
 .login-clock .ck-t{font-size:52px;color:#fff}.login-clock .ck-d{font-size:18px}
 .topbar{min-height:78px}
 @media(max-width:900px){.login-clock .ck-t{font-size:38px}.today.sclock .ck-t{font-size:24px}}
+@media(max-width:900px){.login-clock{position:static}}
