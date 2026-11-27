@@ -104,7 +104,7 @@ function sheetHd(title, sub) {
 function kv(pairs) { return h('table', { class: 'grid' }, h('tbody', null, ...pairs.map(([a, b]) => h('tr', null, h('th', { style: 'width:30%;text-align:right' }, a), h('td', null, b == null ? '' : String(b)))))); }
 window.printCutSheet = function (r) {
   const doc = sheetHd('ورقة أمر القص ' + r.code);
-  doc.append(h('div', { html: barcodeSvg(r.code, 50), style: 'text-align:left;margin:6px 0' }));
+  doc.append(h('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:16px;margin:6px 0' }, h('div', { html: barcodeSvg(r.code, 50) }), h('div', { html: (window.QRS ? QRS.svg(String(r.code), 96) : ''), title: r.code })));
   doc.append(kv([['كود القصة', r.code], ['العميل', r.client_name], ['الموديل', r.model_name], ['الخامة', r.fabric], ['اللون', r.color], ['وزن القماش المحول (كجم)', n3(r.weight_in)], ['الوزن المستخدم (كجم)', n3(r.weight_used)], ['الهالك (كجم)', n3(r.waste)], ['طول الراق (م) / عرض (سم)', (r.marker_len || 0) + ' / ' + (r.marker_width || 0)], ['عدد الراقات', r.layers], ['إجمالي القطع', fmt(r.total, 0)], ['تكلفة القطعة', fmt(r.unit_cost)], ['إجمالي التكلفة', fmt(r.cost_total)], ['المسلم / المتبقي', fmt(r.delivered, 0) + ' / ' + fmt(r.left, 0)]]));
   doc.append(h('h3', null, 'المقاسات'), table(sizeKeys.map(([k, t]) => ({ t, k })), [r]));
   doc.append(h('div', { style: 'display:flex;justify-content:space-between;margin-top:40px' }, h('div', null, 'توقيع القصّاص: ..............'), h('div', null, 'توقيع المراجع: ..............')));
@@ -169,3 +169,16 @@ window.globalSearch = async function (q) {
   };
   MZ.pages.assistant = P.assistant;
 })();
+
+/* ---------- الإقفال اليومي ---------- */
+P.daily_close = async () => {
+  const dt = (MZ.dcDate || today()); const d = await GET('/daily-close?date=' + dt); const f = (n) => Number(n || 0).toLocaleString('ar-EG');
+  const inp = h('input', { type: 'date', value: d.date, onchange: () => { MZ.dcDate = inp.value; openPage('daily_close'); } });
+  const att = {}; d.attendance.forEach(a => { att[a.status] = a.n; });
+  return h('div', null, pageHead('🧾 الإقفال اليومي', inp, btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
+    h('div', { class: 'kpis' }, kpi('قصات جديدة', d.orders), kpi('إيصالات استلام', d.receipts), kpi('تسليمات (قطع)', d.deliveries.n + ' (' + f(d.deliveries.qty) + ')'), kpi('تحصيلات', f(d.payments.total)), kpi('مصروفات', f(d.expenses.total))),
+    h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'إنتاج اليوم حسب المرحلة'), d.production.length ? table([{ t: 'المرحلة', k: 'stage' }, { t: 'سليم', f: r => f(r.ok) }, { t: 'تالف', f: r => f(r.defect) }], d.production) : h('div', { class: 'pb' }, 'لا إنتاج مسجل في هذا اليوم')),
+    h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'الحضور'), h('div', { class: 'pb' }, d.attendance.length ? d.attendance.map(a => a.status + ': ' + a.n).join(' | ') : 'لم يُسجَّل حضور في هذا اليوم')),
+    h('div', { class: 'panel' }, h('div', { class: 'pb' }, 'لإقفال الفترة ومنع التعديل على ما قبل تاريخ معيّن: الإعدادات، ثم "قفل ما قبل تاريخ".')));
+};
+MZ.pages.daily_close = P.daily_close;
