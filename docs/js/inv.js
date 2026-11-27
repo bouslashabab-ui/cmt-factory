@@ -12,7 +12,7 @@ async function moveDlg(kind) {
   const g = formGrid(fl); modal({ in: 'إذن إضافة (وارد)', out: 'إذن صرف (صادر)', transfer: 'تحويل بين المخازن' }[kind], g.el, [{ t: 'حفظ', kind: 'pri', fn: async (c) => { await POST('/inv/moves', { ...g.get(), kind }); c(); toast('تم تسجيل الحركة'); openPage('inv_stock'); } }]);
 }
 P.inv_stock = async () => {
-  const d = await GET('/inv/stock'); const low = d.rows.filter(r => r.low).length;
+  const d = await GET('/inv/stock') || {}; if (!Array.isArray(d.rows)) d.rows = []; d.rows.forEach(r => { if (!Array.isArray(r.by_wh)) r.by_wh = []; }); const low = d.rows.filter(r => r.low).length;
   return h('div', null, pageHead('📦 رصيد المخزون', canW() ? btn('➕ وارد', () => moveDlg('in'), 'pri') : null, canW() ? btn('➖ صادر', () => moveDlg('out')) : null, canW() ? btn('🔁 تحويل', () => moveDlg('transfer')) : null, btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
     h('div', { class: 'kpis' }, kpi('عدد الأصناف', d.rows.length), kpi('قيمة المخزون (متوسط مرجح)', fmt(d.total_value)), kpi('أصناف تحت الحد الأدنى', low)),
     table([{ t: 'الكود', k: 'code' }, { t: 'الصنف', k: 'name' }, { t: 'الوحدة', k: 'unit' }, { t: 'الرصيد', f: r => h('b', { style: { color: r.low ? '#b3261e' : '' } }, fmt(r.qty, 3).replace(/\.?0+$/, '')) }, { t: 'متوسط التكلفة', f: r => fmt(r.avg) }, { t: 'القيمة', f: r => fmt(r.value) }, { t: 'حسب المخزن', f: r => r.by_wh.filter(w => w.qty).map(w => w.name + ': ' + w.qty).join(' | ') }, { t: 'تنبيه', f: r => r.low ? h('span', { class: 'tag bad' }, 'تحت الحد') : '' }, { t: '', f: r => btn('كارت الصنف', () => { MZ.invItem = r.id; openPage('inv_card'); }, 'sm') }], d.rows, { foot: [null, null, null, null, 'الإجمالي', fmt(d.total_value), null, null, null] }));
@@ -32,7 +32,7 @@ P.inv_card = async () => {
   sel.onchange = show; show(); return h('div', null, pageHead('📇 كارت الصنف', sel, btn('⬇ تصدير', () => exportChooser())), out);
 };
 P.inv_count = async () => {
-  const whs = await GET('/inv/wh'), st = await GET('/inv/stock'); const ws = h('select', null, whs.map(w => h('option', { value: w.id }, w.name))); const dt = h('input', { type: 'date', value: today() }); const inputs = {};
+  let whs = await GET('/inv/wh'); if (!Array.isArray(whs)) whs = []; const st = await GET('/inv/stock') || {}; if (!Array.isArray(st.rows)) st.rows = []; st.rows.forEach(r => { if (!Array.isArray(r.by_wh)) r.by_wh = []; }); const ws = h('select', null, whs.map(w => h('option', { value: w.id }, w.name))); const dt = h('input', { type: 'date', value: today() }); const inputs = {};
   const rows = st.rows.map(r => { const i = h('input', { type: 'number', step: '0.001', min: '0', placeholder: 'الفعلي' }); inputs[r.id] = i; return { r, i }; });
   const sys = (r) => (r.by_wh.find(w => String(w.wh_id) === ws.value) || { qty: 0 }).qty;
   const tb = table([{ t: 'الصنف', f: x => x.r.code + ' ' + x.r.name }, { t: 'الرصيد الدفتري', f: x => String(sys(x.r)) }, { t: 'الكمية بالجرد', f: x => x.i }], rows);
