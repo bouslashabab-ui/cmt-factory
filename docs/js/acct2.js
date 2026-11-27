@@ -167,5 +167,159 @@
     renderList(); await loadHist();
     return root;
   };
+  /* ---------- stage 4: accrued payroll + prepaid expenses + accrued expenses ---------- */
+  const EXP_OPTS = [['5200', 'مصروفات تشغيل عامة'], ['5300', 'إيجار'], ['5400', 'كهرباء ومياه'], ['5500', 'صيانة'], ['5700', 'رواتب وأجور إدارية'], ['5900', 'مصروفات متنوعة']];
+  const PAY_OPTS = [['1100', 'الصندوق (نقدًا)'], ['1110', 'البنك (تحويل بنكي)']];
+  const selOf = (opts, first) => h('select', { class: 'inp' }, (first ? [h('option', { value: '' }, first)] : []).concat(opts.map(o => h('option', { value: o[0] }, o[0] + ' ' + o[1]))));
+  P2.accruals = async () => {
+    const root = h('div');
+    const kpiBox = h('div', { class: 'kpis' });
+    const refreshKpis = async () => {
+      const [pa, pr, ac] = await Promise.all([GET('/gl2/payroll-accruals'), GET('/gl2/prepaids'), GET('/gl2/accruals')]);
+      kpiBox.innerHTML = '';
+      kpiBox.append(
+        VZ.kpiD('رواتب مستحقة غير مسددة', r2c(pa.reduce((s, x) => s + (x.net - x.paid_amount), 0))),
+        VZ.kpiD('مصروفات مقدمة متبقية', r2c(pr.reduce((s, x) => s + x.remaining, 0))),
+        VZ.kpiD('مصروفات مستحقة غير مسددة', r2c(ac.filter(x => !x.settled).reduce((s, x) => s + x.amount, 0))),
+        VZ.kpiD('أشهر رواتب مرحّلة', pa.length, undefined, undefined, false));
+      return { pa, pr, ac };
+    };
+    /* --- payroll accrual --- */
+    const pym = h('input', { type: 'month', value: today().slice(0, 7) });
+    const pInfo = h('div'), pAct = h('div'), pHist = h('div');
+    let pData = null;
+    const loadPayrollHist = guard(async () => {
+      const rs = await GET('/gl2/payroll-accruals'); pHist.innerHTML = '';
+      pHist.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'سجل استحقاقات الرواتب'), table([
+        { t: 'الشهر', f: r => VZ.monthLabel(r.ym) }, { t: 'الإجمالي', cls: 'num', f: r => fmt(+r.gross) }, { t: 'الصافي', cls: 'num', f: r => fmt(+r.net) },
+        { t: 'المسدد', cls: 'num', f: r => fmt(+r.paid_amount) }, { t: 'المتبقي', cls: 'num', f: r => fmt(r2c(r.net - r.paid_amount)) },
+        { t: 'قيد', cls: 'num', f: r => r.entry_no || '' }, { t: 'الحالة', f: r => +r.net - +r.paid_amount > 0.004 ? h('span', { class: 'okb' }, 'غير مسددة بالكامل') : h('span', { class: 'okb ok' }, 'مسددة') }
+      ], rs, { empty: 'لا توجد استحقاقات مرحّلة بعد' })));
+    });
+    const payNow = guard(async () => {
+      const outstanding = pData && pData.accrual ? pData.accrual.outstanding : 0;
+      if (!(await confirmBox('سداد ' + fmt(outstanding) + ' رواتب شهر ' + pym.value + '؟'))) return;
+      const r = await POST('/gl2/payroll-pay', { ym: pym.value, pay_account: paySel.value || '1100' });
+      toast('سُدد ' + fmt(r.amount) + ' — المتبقي ' + fmt(r.outstanding) + ' ✔');
+      await showPayroll(); await loadPayrollHist(); await refreshKpis();
+    });
+    const accrueNow = guard(async () => {
+      if (!(await confirmBox('ترحيل استحقاق رواتب شهر ' + pym.value + ' بصافي ' + fmt(pData.calc.net) + '؟'))) return;
+      const r = await POST('/gl2/payroll-accrual', { ym: pym.value });
+      toast('رُحّل الاستحقاق بقيد رقم ' + r.entry.no + ' ✔');
+      await showPayroll(); await loadPayrollHist(); await refreshKpis();
+    });
+    const paySel = selOf(PAY_OPTS);
+    const showPayroll = guard(async () => {
+      pData = await GET('/gl2/payroll-accrual?ym=' + pym.value);
+      const c = pData.calc; pInfo.innerHTML = ''; pAct.innerHTML = '';
+      pInfo.append(h('div', { class: 'kpis' }, VZ.kpiD('إجمالي المستحق', c.gross), VZ.kpiD('السلف (تُسترد)', c.advances), VZ.kpiD('خصومات أخرى', c.other_ded), VZ.kpiD('صافي الرواتب', c.net)));
+      const st = pData.accrual;
+      pAct.append(h('div', { class: 'panel' }, h('div', { class: 'pb' },
+        pData.future ? h('span', { class: 'okb bad' }, '✖ لا يمكن استحقاق رواتب شهر في المستقبل')
+          : !st ? h('span', null, h('span', { class: 'okb' }, c.gross > 0 ? 'غير مرحّل — القيد سيكون بتاريخ ' + pData.month_end : 'لا توجد رواتب مستحقة لهذا الشهر'), ' ', c.gross > 0 && canW() ? btn('✅ ترحيل الاستحقاق', accrueNow, 'pri') : null)
+          : h('span', null, h('span', { class: 'okb ok' }, 'مرحّل بقيد رقم ' + (st.entry_no || '') + ' — المتبقي ' + fmt(st.outstanding)), ' ', st.outstanding > 0.004 && canW() ? btn('💵 سداد الرواتب', payNow, 'pri') : null, st.outstanding > 0.004 ? h('label', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center', marginInlineStart: '8px' } }, h('span', null, 'من'), paySel) : null))));
+    });
+    /* --- prepaid expenses --- */
+    const prName = h('input', { type: 'text', placeholder: 'مثال: إيجار مدفوع مقدمًا عن سنة' });
+    const prExp = selOf(EXP_OPTS); prExp.value = '5300';
+    const prStart = h('input', { type: 'month', value: today().slice(0, 7) });
+    const prMonths = h('input', { type: 'number', value: 12, min: 1, max: 60 });
+    const prTotal = h('input', { type: 'number', step: 'any', placeholder: 'إجمالي المبلغ المدفوع' });
+    const prPay = selOf(PAY_OPTS, 'بدون قيد — مسجّل سابقًا');
+    const prTbl = h('div'), amBox = h('div'), amAct = h('div'), amHist = h('div');
+    const loadPrepaids = guard(async () => {
+      const rs = await GET('/gl2/prepaids'); prTbl.innerHTML = '';
+      prTbl.append(table([
+        { t: 'المصروف', f: r => r.name }, { t: 'حساب المصروف', f: r => r.expense_name }, { t: 'من شهر', f: r => VZ.monthLabel(r.start_month) },
+        { t: 'شهور', cls: 'num', f: r => r.months }, { t: 'الإجمالي', cls: 'num', f: r => fmt(r.total) }, { t: 'شهريًا', cls: 'num', f: r => fmt(r.monthly) },
+        { t: 'المستهلك', cls: 'num', f: r => fmt(r.amortized) }, { t: 'المتبقي', cls: 'num', f: r => fmt(r.remaining) },
+        { t: 'الحالة', f: r => r.done ? h('span', { class: 'okb' }, 'مستهلك بالكامل') : h('span', { class: 'okb ok' }, 'نشط') }
+      ], rs, { empty: 'لا توجد مصروفات مقدمة — أضف أول واحد أعلاه' }));
+    });
+    const addPrepaid = guard(async () => {
+      if (!(await confirmBox('تسجيل مصروف مقدم "' + prName.value + '" بإجمالي ' + fmt(+prTotal.value) + ' على ' + prMonths.value + ' شهر؟'))) return;
+      const r = await POST('/gl2/prepaids', { name: prName.value, expense_account: prExp.value, start_month: prStart.value, months: +prMonths.value, total: +prTotal.value, pay_account: prPay.value || null });
+      toast(r.entry ? 'سُجّل وقُيّد الدفع رقم ' + r.entry.no + ' ✔' : 'سُجّل ✔');
+      prName.value = ''; prTotal.value = '';
+      await loadPrepaids(); await refreshKpis();
+    });
+    const amMonth = h('input', { type: 'month', value: today().slice(0, 7) });
+    let amPv = null;
+    const loadAmortHist = guard(async () => {
+      const rs = await GET('/gl2/amorts'); amHist.innerHTML = '';
+      amHist.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'سجل الاستهلاك الشهري'), table([
+        { t: 'الشهر', f: r => VZ.monthLabel(r.month) }, { t: 'المصروف', f: r => r.prepaid_name }, { t: 'المبلغ', cls: 'num', f: r => fmt(+r.amount) },
+        { t: 'قيد', cls: 'num', f: r => r.entry_no || '' }, { t: 'وقت الترحيل', k: 'created_at' }
+      ], rs, { empty: 'لا يوجد استهلاك مرحّل بعد' })));
+    });
+    const runAmort = guard(async () => {
+      if (!amPv || !(await confirmBox('ترحيل استهلاك شهر ' + amMonth.value + ' بإجمالي ' + fmt(amPv.due_total) + '؟'))) return;
+      const r = await POST('/gl2/amortize', { month: amMonth.value });
+      toast(r.posted ? 'رُحّل استهلاك ' + r.posted + ' بإجمالي ' + fmt(r.total) + ' ✔' : 'لا يوجد استهلاك مستحق');
+      await loadPrepaids(); await previewAmort(); await loadAmortHist(); await refreshKpis();
+    });
+    const previewAmort = guard(async () => {
+      amPv = await GET('/gl2/amortize?month=' + amMonth.value);
+      amBox.innerHTML = ''; amAct.innerHTML = '';
+      amBox.append(table([
+        { t: 'المصروف', f: i => i.name }, { t: 'المستهلك', cls: 'num', f: i => fmt(i.amortized) }, { t: 'هذا الشهر', cls: 'num', f: i => i.posted ? '' : fmt(i.due) },
+        { t: 'الحالة', f: i => i.posted ? h('span', { class: 'okb ok' }, 'مرحّل هذا الشهر') : h('span', { class: 'okb' }, 'مستحق') }
+      ], amPv.items, { empty: 'لا يوجد استهلاك مستحق لهذا الشهر' }));
+      const pending = amPv.items.filter(i => !i.posted && i.due > 0);
+      amAct.append(h('div', { class: 'pb' },
+        amPv.future ? h('span', { class: 'okb bad' }, '✖ لا يمكن ترحيل شهر في المستقبل')
+          : pending.length ? h('span', null, h('span', { class: 'okb ok' }, 'إجمالي مستحق: ' + fmt(amPv.due_total)), ' ', canW() ? btn('✅ ترحيل الاستهلاك', runAmort, 'pri') : null)
+          : h('span', { class: 'okb ok' }, '✔ لا يوجد استهلاك مستحق لهذا الشهر')));
+    });
+    /* --- accrued expenses --- */
+    const acName = h('input', { type: 'text', placeholder: 'مثال: فاتورة كهرباء ديسمبر' });
+    const acExp = selOf(EXP_OPTS);
+    const acMonth = h('input', { type: 'month', value: today().slice(0, 7) });
+    const acAmt = h('input', { type: 'number', step: 'any', placeholder: 'المبلغ المستحق' });
+    const acTbl = h('div');
+    const acPay = selOf(PAY_OPTS);
+    const loadAccruals = guard(async () => {
+      const rs = await GET('/gl2/accruals'); acTbl.innerHTML = '';
+      const settle = (r) => guard(async () => {
+        if (!(await confirmBox('سداد "' + r.name + '" بمبلغ ' + fmt(r.amount) + '؟'))) return;
+        const res = await POST('/gl2/accrual-settle', { id: r.id, pay_account: acPay.value || '1100' });
+        toast('سُدد بقيد رقم ' + res.entry.no + ' ✔');
+        await loadAccruals(); await refreshKpis();
+      })();
+      acTbl.append(table([
+        { t: 'المصروف', f: r => r.name }, { t: 'الحساب', f: r => r.expense_name }, { t: 'شهر الاستحقاق', f: r => VZ.monthLabel(r.month) },
+        { t: 'المبلغ', cls: 'num', f: r => fmt(r.amount) }, { t: 'قيد الاستحقاق', cls: 'num', f: r => r.entry_no || '' },
+        { t: 'الحالة', f: r => r.settled ? h('span', { class: 'okb ok' }, 'مسدد — قيد ' + (r.settled_entry_no || '')) : h('span', { class: 'okb' }, 'غير مسدد') },
+        { t: '', f: r => !r.settled && canW() ? btn('💵 سداد', () => settle(r)) : null }
+      ], rs, { empty: 'لا توجد مصروفات مستحقة — أضف أول واحد أعلاه' }));
+    });
+    const addAccrual = guard(async () => {
+      if (!(await confirmBox('تسجيل مصروف مستحق "' + acName.value + '" بمبلغ ' + fmt(+acAmt.value) + ' عن شهر ' + acMonth.value + '؟'))) return;
+      const r = await POST('/gl2/accruals', { name: acName.value, expense_account: acExp.value, month: acMonth.value, amount: +acAmt.value });
+      toast('سُجّل بقيد رقم ' + r.entry.no + ' ✔');
+      acName.value = ''; acAmt.value = '';
+      await loadAccruals(); await refreshKpis();
+    });
+    root.append(pageHead('📆 الاستحقاقات: رواتب ومصروفات مقدمة ومستحقة', btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
+      note('ثلاث أدوات بقيد آلي: (1) استحقاق الرواتب — يحسب رواتب الشهر من الحضور ويرحّلها بقيد تسوية (مدين 5100 / دائن 2300 رواتب مستحقة، والسلف تُسترد على 1150)، ثم سدادها لاحقًا. (2) المصروفات المدفوعة مقدمًا — تُسجّل على 1400 وتُستهلك شهريًا بالتساوي. (3) المصروفات المستحقة — تُسجّل (مدين المصروف / دائن 2200) وتُسوّى عند السداد.'),
+      kpiBox,
+      h('div', { class: 'panel' }, h('div', { class: 'ph' }, '1) استحقاق الرواتب الشهرية'), h('div', { class: 'filters' }, h('label', null, h('span', null, 'الشهر'), pym), btn('عرض الرواتب', showPayroll, 'pri')), pInfo, pAct),
+      pHist,
+      h('div', { class: 'panel' }, h('div', { class: 'ph' }, '2) المصروفات المدفوعة مقدمًا'), canW() ? h('div', { class: 'filters' },
+        h('label', null, h('span', null, 'اسم المصروف'), prName), h('label', null, h('span', null, 'حساب المصروف'), prExp),
+        h('label', null, h('span', null, 'من شهر'), prStart), h('label', null, h('span', null, 'عدد الشهور'), prMonths),
+        h('label', null, h('span', null, 'الإجمالي'), prTotal), h('label', null, h('span', null, 'الدفع'), prPay),
+        btn('➕ تسجيل', addPrepaid, 'pri')) : null, prTbl,
+        h('div', { class: 'filters', style: { marginTop: '8px' } }, h('label', null, h('span', null, 'شهر الاستهلاك'), amMonth), btn('عرض المستحق', previewAmort, 'pri')),
+        amAct, amBox),
+      amHist,
+      h('div', { class: 'panel' }, h('div', { class: 'ph' }, '3) المصروفات المستحقة'), canW() ? h('div', { class: 'filters' },
+        h('label', null, h('span', null, 'اسم المصروف'), acName), h('label', null, h('span', null, 'الحساب'), acExp),
+        h('label', null, h('span', null, 'شهر الاستحقاق'), acMonth), h('label', null, h('span', null, 'المبلغ'), acAmt),
+        h('label', null, h('span', null, 'حساب السداد'), acPay), btn('➕ تسجيل', addAccrual, 'pri')) : null, acTbl));
+    await refreshKpis(); await loadPayrollHist(); await loadPrepaids(); await loadAmortHist(); await loadAccruals(); await showPayroll();
+    return root;
+  };
   Object.assign(MZ.pages, P2);
 })();
