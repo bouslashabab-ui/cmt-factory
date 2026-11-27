@@ -389,6 +389,32 @@ async function vatSettle(u, body) {
     return { entry, output: owed, input_used: used, paid: pay };
   });
 }
+
+/* ---------- detailed supplier statement: movements with running balance + FIFO aging ---------- */
+async function supplierStatement(q) {
+  const sid = +q.supplier_id; if (!sid) throw bad('اختر المورد');
+  const sup = (await Q('SELECT id,code,name,phone FROM suppliers WHERE id=?', [sid]))[0]; if (!sup) throw bad('المورد غير موجود');
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+  const to = isDate(q.to) ? q.to : today;
+  const from = isDate(q.from) ? q.from : '2000-01-01';
+  const base = "FROM gl_lines l JOIN gl_entries e ON e.id=l.entry_id JOIN gl_accounts a ON a.id=l.account_id AND a.code='2100' WHERE l.supplier_id=?";
+  const [op] = await Q("SELECT COALESCE(SUM(l.credit-l.debit),0) b " + base + " AND e.date<? AND e.kind<>'closing'", [sid, from]);
+  const rows = await Q("SELECT e.date, e.no, e.memo, e.kind, e.source, l.debit, l.credit " + base + " AND e.date>=? AND e.date<=? AND e.kind<>'closing' ORDER BY e.date, e.id", [sid, from, to]);
+  let run = r2(Number(op.b));
+  const moves = rows.map(r => { run = r2(run + Number(r.credit) - Number(r.debit)); return { date: r.date, no: r.no, memo: r.memo || '', kind: r.kind, debit: r2(Number(r.debit)), credit: r2(Number(r.credit)), balance: run }; });
+  /* FIFO aging on lines up to `to`: credits = invoices (oldest first), debits = payments applied FIFO */
+  const all = await Q("SELECT e.date, l.debit, l.credit " + base + " AND e.date<=? AND e.kind<>'closing' ORDER BY e.date, e.id", [sid, to]);
+  const invs = []; let payPool = 0;
+  for (const r of all) {
+    const cr = Number(r.credit), db = Number(r.debit);
+    if (cr > 0) { let rem = cr; while (rem > 0.004 && payPool > 0.004) { const u = Math.min(rem, payPool); rem -= u; payPool -= u; } if (rem > 0.004) invs.push({ date: r.date, rem }); }
+    if (db > 0) { let rem = db; for (const v of invs) { if (rem <= 0.004) break; const u = Math.min(v.rem, rem); v.rem -= u; rem -= u; } if (rem > 0.004) payPool += rem; }
+  }
+  const buckets = { b0: 0, b30: 0, b60: 0, b90: 0 };
+  for (const v of invs) { if (v.rem <= 0.004) continue; const age = Math.floor((new Date(to) - new Date(v.date)) / 86400000); const k = age <= 30 ? 'b0' : age <= 60 ? 'b30' : age <= 90 ? 'b60' : 'b90'; buckets[k] = r2(buckets[k] + v.rem); }
+  const unapplied = r2(payPool); /* payments exceeding invoices (credit balance with supplier) */
+  return { supplier: sup, from, to, opening: r2(Number(op.b)), moves, closing: run, aging: { cur: buckets.b0, d30: buckets.b30, d60: buckets.b60, d90: buckets.b90, unapplied } };
+}
 async function api(head, req, u, id, body, q, parts) {
   if (head !== 'gl2') return undefined; await ensure(); const sub = parts[1], m = req.method;
   const write = () => { if (u.role === 'viewer') throw new HttpError(403, 'صلاحيتك للعرض فقط'); };
@@ -433,6 +459,7 @@ async function api(head, req, u, id, body, q, parts) {
   }
   if (sub === 'vat-report' && m === 'GET') return vatReport(q);
   if (sub === 'vat-settle') { write(); if (m === 'POST') return vatSettle(u, body); }
+  if (sub === 'supplier-statement' && m === 'GET') return supplierStatement(q);
   if (sub === 'vat-settlements' && m === 'GET') return Q('SELECT v.*, e.no entry_no FROM vat_settlements v LEFT JOIN gl_entries e ON e.id=v.entry_id ORDER BY v.id DESC LIMIT 50');
   throw new HttpError(404, 'غير موجود');
 }
