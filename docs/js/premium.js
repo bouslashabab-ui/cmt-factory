@@ -10,7 +10,7 @@
   const setSlot = (slot, ch) => { if (slot.dataset.c === ch) return; const first = slot.dataset.c === undefined; slot.dataset.c = ch; slot.innerHTML = ''; const sp = document.createElement('span'); sp.className = first ? 'cv' : 'cv roll'; sp.textContent = ch; slot.append(sp); };
   const tick = () => {
     const n = new Date(); const ps = fmtP.formatToParts(n); const chars = []; let sec = false;
-    ps.forEach(p => { if (p.type === 'literal') { chars.push({ c: ':', k: 'sep' }); } else if (p.type === 'dayPeriod') { chars.push({ c: ' ', k: 'sp' }); chars.push({ c: p.value, k: 'ap' }); } else { for (const ch of p.value) chars.push({ c: ch, k: p.type === 'second' ? 'sec' : 'dg' }); } });
+    ps.forEach(p => { if (p.type === 'literal') { if (p.value.includes(':')) chars.push({ c: ':', k: 'sep' }); } else if (p.type === 'dayPeriod') { chars.push({ c: ' ', k: 'sp' }); chars.push({ c: p.value, k: 'ap' }); } else { for (const ch of p.value) chars.push({ c: ch, k: p.type === 'second' ? 'sec' : 'dg' }); } });
     document.querySelectorAll('.sclock').forEach(e => {
       if (!e._ck || e._ck.n !== chars.length) { e.innerHTML = '<span class="ck-t"></span><span class="ck-d"><b class="ck-w"></b><span class="ck-r"></span></span><i class="ck-bar"></i>'; const t = e.querySelector('.ck-t'); chars.forEach(c => { const s = document.createElement('span'); s.className = 'ck-s ' + c.k; t.append(s); }); e._ck = { n: chars.length, t: [...t.children], w: e.querySelector('.ck-w'), r: e.querySelector('.ck-r'), bar: e.querySelector('.ck-bar') }; }
       chars.forEach((c, i) => setSlot(e._ck.t[i], c.c));
