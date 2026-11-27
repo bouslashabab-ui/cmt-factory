@@ -137,7 +137,7 @@ async function api(head, req, u, id, body, q, parts) {
     const [clients, suppliers, items, whs, brs] = await Promise.all([
       Q('SELECT id,code,name FROM clients WHERE active=1 ORDER BY name'),
       Q('SELECT id,code,name FROM suppliers WHERE active=1 ORDER BY name'),
-      Q('SELECT id,code,name,unit FROM inv_items WHERE active=1 ORDER BY code'),
+      Q('SELECT id,code,name,unit,sell_price FROM inv_items WHERE active=1 ORDER BY code'),
       Q('SELECT id,name FROM inv_wh ORDER BY id'),
       Q('SELECT id,code,name FROM branches WHERE active=1 ORDER BY code')]);
     return { clients, suppliers, items, warehouses: whs, branches: brs, prefixes: PREFIX };
