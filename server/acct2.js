@@ -6,12 +6,13 @@ const Q = async (sql, p) => (await C.db().query(sql, p))[0];
 const r2 = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 const EXTRA = [['1400', 'مصروفات مدفوعة مقدمًا', 'asset'], ['1450', 'ضريبة القيمة المضافة - مدخلات', 'asset'], ['2500', 'ضريبة القيمة المضافة - مخرجات', 'liability'], ['5700', 'رواتب وأجور إدارية', 'expense']];
 const SCH = [];
-let ready = false;
-async function ensure() {
-  if (ready) return;
-  for (const s of SCH) await C.db().query(s);
-  for (const a of EXTRA) { const [r] = await C.db().query('SELECT id FROM gl_accounts WHERE code=?', [a[0]]); if (!r.length) await C.db().query('INSERT INTO gl_accounts(code,name,type) VALUES(?,?,?)', a); }
-  ready = true;
+let readyP = null;
+function ensure() {
+  if (!readyP) readyP = (async () => {
+    for (const s of SCH) await C.db().query(s);
+    for (const a of EXTRA) await C.db().query('INSERT IGNORE INTO gl_accounts(code,name,type) VALUES(?,?,?)', a);
+  })().catch((e) => { readyP = null; throw e; });
+  return readyP;
 }
 const CASH = ['1100', '1110'];
 const dayBefore = (d) => new Date(new Date(d + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
