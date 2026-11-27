@@ -253,6 +253,7 @@ async function payrollApi(req, u, body, q) {
 async function wbApi(head, req, u, id, body, q, parts) {
   { const r2x = await require('./wb2').api(head, req, u, id, body, q, parts); if (r2x !== undefined) return r2x; }
   { const rg = await require('./acct').api(head, req, u, id, body, q, parts); if (rg !== undefined) return rg; }
+  { const r3 = await require('./acct2').api(head, req, u, id, body, q, parts); if (r3 !== undefined) return r3; }
   { const ri = await require('./inv').api(head, req, u, id, body, q, parts); if (ri !== undefined) return ri; }
   if (head === 'store') return storeApi(req, u, id, body, q, parts[2] === 'transfer' ? 'transfer' : (parts[1] === 'transfer' ? 'transfer' : null));
   if (head === 'store-transfer') return storeApi(req, u, id, body, q, 'transfer');
