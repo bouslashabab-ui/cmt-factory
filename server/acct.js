@@ -14,21 +14,24 @@ const CHART = [['1100', 'الصندوق (نقدية)', 'asset'], ['1110', 'ال�
 ['4100', 'إيراد خدمة التصنيع', 'revenue'], ['4200', 'إيرادات أخرى', 'revenue'],
 ['5100', 'أجور مباشرة', 'expense'], ['5200', 'مصروفات تشغيل عامة', 'expense'], ['5300', 'إيجار', 'expense'], ['5400', 'كهرباء ومياه', 'expense'], ['5500', 'صيانة', 'expense'], ['5600', 'مصروف إهلاك', 'expense'], ['5900', 'مصروفات متنوعة', 'expense']];
 const TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
-let ready = false;
+let ready = false, ready2 = false;
 async function ensure() {
   if (!ready) { for (const s of SCH) await C.db().query(s); ready = true; }
+  if (!ready2) { try { await C.db().query('ALTER TABLE gl_lines ADD COLUMN client_id INT NULL'); } catch (e) { /* exists */ }
+    try { await C.db().query("UPDATE gl_lines l JOIN gl_entries e ON e.id=l.entry_id JOIN cut_orders o ON e.source='order' AND o.id=e.source_id JOIN gl_accounts a ON a.id=l.account_id AND a.code='1200' SET l.client_id=o.client_id WHERE l.client_id IS NULL"); await C.db().query("UPDATE gl_lines l JOIN gl_entries e ON e.id=l.entry_id JOIN payments p ON e.source='payment' AND p.id=e.source_id JOIN gl_accounts a ON a.id=l.account_id AND a.code='1200' SET l.client_id=p.client_id WHERE l.client_id IS NULL"); } catch (e) { console.error('subledger backfill', e.message); }
+    ready2 = true; }
   const [[n]] = await C.db().query('SELECT COUNT(*) n FROM gl_accounts'); if (!n.n) for (const a of CHART) await C.db().query('INSERT INTO gl_accounts(code,name,type) VALUES(?,?,?)', a);
 }
 const acc = async (code) => (await Q('SELECT id FROM gl_accounts WHERE code=?', [code]))[0].id;
 async function post(conn, date, memo, kind, lines, o = {}) {
-  const ls = lines.map(l => ({ a: +l.account_id, d: r2(l.debit), c: r2(l.credit) })).filter(l => l.d || l.c);
+  const ls = lines.map(l => ({ a: +l.account_id, d: r2(l.debit), c: r2(l.credit), cl: l.client_id ? +l.client_id : null })).filter(l => l.d || l.c);
   if (ls.length < 2) throw bad('القيد يحتاج سطرين على الأقل');
   if (ls.some(l => (l.d && l.c) || l.d < 0 || l.c < 0)) throw bad('السطر إما مدين أو دائن بقيمة موجبة');
   const D = r2(ls.reduce((s, l) => s + l.d, 0)), K = r2(ls.reduce((s, l) => s + l.c, 0));
   if (D !== K) throw bad('القيد غير متزن: المدين ' + D + ' والدائن ' + K);
   const [[m]] = await conn.query('SELECT COALESCE(MAX(no),0)+1 n FROM gl_entries');
   const [r] = await conn.query('INSERT INTO gl_entries(no,date,memo,kind,source,source_id,reversed_of,created_by) VALUES(?,?,?,?,?,?,?,?)', [m.n, date, String(memo || '').slice(0, 250), kind, o.source || null, o.source_id || null, o.reversed_of || null, o.uid || null]);
-  for (const l of ls) await conn.query('INSERT INTO gl_lines(entry_id,account_id,debit,credit) VALUES(?,?,?,?)', [r.insertId, l.a, l.d, l.c]);
+  for (const l of ls) await conn.query('INSERT INTO gl_lines(entry_id,account_id,debit,credit,client_id) VALUES(?,?,?,?,?)', [r.insertId, l.a, l.d, l.c, l.cl]);
   return { id: r.insertId, no: m.n };
 }
 async function lockGuard(date) { const s = await C.getSettings(); const lb = String(s.lock_before || ''); if (/^\d{4}-\d{2}-\d{2}$/.test(lb) && date < lb) throw new HttpError(423, 'الفترة مقفلة قبل ' + lb); }
@@ -43,9 +46,21 @@ async function autoPost(uid) {
   try {
     const cash = await acc('1100'), ar = await acc('1200'), rev = await acc('4100'), exp = await acc('5200');
     const has = async (s, id) => (await conn.query('SELECT id FROM gl_entries WHERE source=? AND source_id=?', [s, id]))[0].length;
-    for (const o of await Q('SELECT id,code,date,total_pcs,unit_cost,client_id FROM cut_orders WHERE date IS NOT NULL')) { const v = r2((o.total_pcs || 0) * (o.unit_cost || 0)); if (v > 0 && !(await has('order', o.id))) { await post(conn, o.date, 'إيراد تصنيع أمر القص ' + o.code, 'normal', [{ account_id: ar, debit: v }, { account_id: rev, credit: v }], { source: 'order', source_id: o.id, uid }); n++; } }
-    for (const p of await Q('SELECT id,date,amount FROM payments')) if (!(await has('payment', p.id))) { await post(conn, p.date, 'تحصيل من عميل', 'normal', [{ account_id: cash, debit: p.amount }, { account_id: ar, credit: p.amount }], { source: 'payment', source_id: p.id, uid }); n++; }
+    for (const o of await Q('SELECT id,code,date,total_pcs,unit_cost,client_id FROM cut_orders WHERE date IS NOT NULL')) { const v = r2((o.total_pcs || 0) * (o.unit_cost || 0)); if (v > 0 && !(await has('order', o.id))) { await post(conn, o.date, 'إيراد تصنيع أمر القص ' + o.code, 'normal', [{ account_id: ar, debit: v, client_id: o.client_id }, { account_id: rev, credit: v }], { source: 'order', source_id: o.id, uid }); n++; } }
+    for (const p of await Q('SELECT id,date,amount,client_id FROM payments')) if (!(await has('payment', p.id))) { await post(conn, p.date, 'تحصيل من عميل', 'normal', [{ account_id: cash, debit: p.amount }, { account_id: ar, credit: p.amount, client_id: p.client_id }], { source: 'payment', source_id: p.id, uid }); n++; }
     for (const x of await Q('SELECT id,date,amount,category,cut_code FROM expenses')) if (!(await has('expense', x.id))) { await post(conn, x.date, 'مصروف: ' + (x.category || '') + ' ' + (x.cut_code || ''), 'normal', [{ account_id: exp, debit: x.amount }, { account_id: cash, credit: x.amount }], { source: 'expense', source_id: x.id, uid }); n++; }
+    { // inventory moves -> journal (weighted-average cost from the stock card)
+      const I = require('./inv'); const stock = await acc('1300'), ap = await acc('2100'), misc = await acc('5900'); const cards = (await I.compute()).cards;
+      for (const k of Object.keys(cards)) for (const mv of cards[k]) {
+        if (mv.kind === 'trin' || mv.kind === 'trout' || (await has('invmove', mv.id))) continue;
+        const v = r2(Math.abs(mv.signed) * (mv.kind === 'in' ? mv.unit_cost : mv.cost)); if (!(v > 0)) continue; const dt = mv.date;
+        if (mv.kind === 'in') await post(conn, dt, 'توريد مخزون ' + (mv.ref || ''), 'normal', [{ account_id: stock, debit: v }, { account_id: ap, credit: v }], { source: 'invmove', source_id: mv.id, uid });
+        else if (mv.kind === 'out') await post(conn, dt, 'صرف مخزون ' + (mv.ref || ''), 'normal', [{ account_id: exp, debit: v }, { account_id: stock, credit: v }], { source: 'invmove', source_id: mv.id, uid });
+        else if (mv.signed > 0) await post(conn, dt, 'فرق جرد (زيادة)', 'normal', [{ account_id: stock, debit: v }, { account_id: misc, credit: v }], { source: 'invmove', source_id: mv.id, uid });
+        else await post(conn, dt, 'فرق جرد (عجز)', 'normal', [{ account_id: misc, debit: v }, { account_id: stock, credit: v }], { source: 'invmove', source_id: mv.id, uid });
+        n++;
+      }
+    }
   } finally { conn.release(); }
   return n;
 }
@@ -81,6 +96,14 @@ async function api(head, req, u, id, body, q, parts) {
     }
   }
   if (sub === 'autopost' && m === 'POST') { write(); const n = await autoPost(u.id); return { posted: n }; }
+  if (sub === 'subledger') { // customer sub-ledger vs control account 1200
+    const to = /^\d{4}-\d{2}-\d{2}$/.test(q.to || '') ? q.to : '9999-12-31';
+    const rows = await Q("SELECT l.client_id, COALESCE(SUM(l.debit),0) debit, COALESCE(SUM(l.credit),0) credit FROM gl_lines l JOIN gl_entries e ON e.id=l.entry_id AND e.date<=? JOIN gl_accounts a ON a.id=l.account_id AND a.code='1200' GROUP BY l.client_id", [to]);
+    const cs = await Q('SELECT id,code,name FROM clients'); const nm = {}; cs.forEach(c => { nm[c.id] = c; });
+    const out = rows.map(r => ({ client_id: r.client_id, code: r.client_id ? (nm[r.client_id] || {}).code : '', name: r.client_id ? ((nm[r.client_id] || {}).name || '#' + r.client_id) : 'غير مرتبط بعميل', debit: r2(r.debit), credit: r2(r.credit), balance: r2(r.debit - r.credit) }));
+    const control = r2(rows.reduce((s, r) => s + r.debit - r.credit, 0)), subs = r2(out.filter(r => r.client_id).reduce((s, r) => s + r.balance, 0)), un = r2(out.filter(r => !r.client_id).reduce((s, r) => s + r.balance, 0));
+    return { rows: out, control, subs, unassigned: un, reconciled: Math.abs(un) < 0.005 };
+  }
   if (sub === 'ledger') {
     const a = (await Q('SELECT * FROM gl_accounts WHERE id=?', [+q.account]))[0]; if (!a) throw bad('اختر حسابًا');
     const rows = await Q('SELECT e.date,e.no,e.memo,e.kind,l.debit,l.credit FROM gl_lines l JOIN gl_entries e ON e.id=l.entry_id WHERE l.account_id=? ORDER BY e.date,e.id,l.id', [a.id]);
