@@ -20,7 +20,7 @@
   };
   const ensure = () => {
     const land = document.querySelector('.land'); if (land && !land.querySelector('.sclock')) { const c = document.createElement('div'); c.className = 'sclock login-clock'; land.append(c); }
-    const today = document.querySelector('.topbar .today'); if (today && !today.classList.contains('sclock')) { today.classList.add('sclock'); today.dataset.app = '1'; }
+    const today = document.querySelector('.topnav .today'); if (today && !today.classList.contains('sclock')) { today.classList.add('sclock'); today.dataset.app = '1'; }
     const lf = document.querySelector('.land-f'); if (lf && !lf.querySelector('.copy')) { const s = document.createElement('span'); s.className = 'copy'; s.dir = 'ltr'; s.innerHTML = '<b>Samy Platform</b> &nbsp;|&nbsp; ' + COPY; lf.append(s); }
     const side = document.querySelector('.side'); if (side && !side.querySelector('.copy')) { const s = document.createElement('div'); s.className = 'copy side-copy'; s.dir = 'ltr'; s.textContent = COPY; side.append(s); }
     document.querySelectorAll('.kpi b:not([data-cu])').forEach(b => { b.dataset.cu = '1'; countUp(b); });
