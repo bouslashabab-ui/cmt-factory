@@ -160,10 +160,13 @@ function loginScreen() {
     } catch (err) { go.classList.remove('busy'); msg.className = 'lg-msg'; msg.textContent = err.message; go.disabled = false; form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); }
   } }, title, sub, compBox, h('label', { for: 'u' }, 'اسم المستخدم'), userFld, h('label', { for: 'p' }, 'كلمة المرور'), passFld, caps, go, msg, h('div', { class: 'lg-foot' }, APP_NAME + ' © التصنيع للغير'));
   const ART = '<svg viewBox="0 0 520 300" fill="none"><g class="float"><rect x="20" y="170" width="190" height="64" rx="32" fill="#3547e0"/><ellipse cx="52" cy="202" rx="22" ry="22" fill="#0f1437"/><ellipse cx="52" cy="202" rx="9" ry="9" fill="#f2f4fb"/><rect x="40" y="120" width="190" height="60" rx="30" fill="#9aa8ff" stroke="#0f1437" stroke-width="2"/><ellipse cx="72" cy="150" rx="20" ry="20" fill="#0f1437"/><ellipse cx="72" cy="150" rx="8" ry="8" fill="#f2f4fb"/></g><path class="draw" d="M300 60l40-22 30 14 30-14 40 22-22 36-22-10v118h-92V86l-22 10z" fill="#fff" stroke="#0f1437" stroke-width="3" stroke-linejoin="round"/><path class="cut" d="M262 20C300 140 420 150 500 270" stroke="#f0457a" stroke-width="3" stroke-linecap="round"/><circle cx="262" cy="20" r="6" fill="#f0457a"/><path d="M330 120h70M330 140h70M330 160h50" stroke="#9aa8ff" stroke-width="5" stroke-linecap="round"/><g transform="translate(250 262)"><path d="M0 0h260" stroke="#0f1437" stroke-width="2" stroke-dasharray="3 6"/><text x="0" y="-8" font-size="12" fill="#7a82a6" font-family="Tahoma">cut · sew · deliver</text></g></svg>';
+  const MOTTO = ['كل غرزة متقنة… خطوة أقرب للإتقان.', 'النظام الصح بيوفّر وقتك ويرفع إنتاجك.', 'صنعة النهاردة… سمعة بكرة.', 'الإنتاج المنظّم = راحة بال وربح أسرع.', 'ابدأ يومك بخطة… واختمه بإنجاز.'];
+  const mottoT = h('span', { class: 'motto-t' }, MOTTO[0]);
   app.append(h('div', { class: 'land' },
     h('div', { class: 'land-l' }, h('span', { class: 'tagline' }, 'نظام التصنيع للغير'),
       h('h1', { html: 'من القماش...<br><em>لقطعة جاهزة.</em>' }),
       h('p', { class: 'lead' }, 'استلام القماش بالأتواب والكيلو، أمر القص بالمقاسات، الخارج والراجع، مقبوضات العملاء وحساباتهم، وحضور العمال ومرتباتهم. كل مراحل الإنتاج في مكان واحد.'),
+      h('div', { class: 'motto' }, mottoT),
       h('div', { class: 'stages' }, h('div', { class: 'stg' }, h('small', null, '01'), h('b', null, 'قص')), h('span', { class: 'stg-ar' }, '←'), h('div', { class: 'stg' }, h('small', null, '02'), h('b', null, 'تشغيل')), h('span', { class: 'stg-ar' }, '←'), h('div', { class: 'stg' }, h('small', null, '03'), h('b', null, 'تسليم'))),
       h('div', { class: 'art', html: ART })),
     h('div', { class: 'land-r' }, form),
@@ -174,13 +177,25 @@ function loginScreen() {
       if (st.setup_needed) { setupMode = true; title.textContent = 'إعداد النظام لأول مرة'; sub.textContent = 'أنشئ حساب مدير النظام'; compBox.style.display = 'block'; go.textContent = 'إنشاء الحساب والدخول'; }
     } catch (e) { msg.textContent = n < 2 ? 'جاري الاتصال بالخادم...' : 'الخادم يستيقظ، قد يستغرق ذلك حتى دقيقة...'; setTimeout(() => ping(n + 1), 4000); }
   };
-  if (window.matchMedia && matchMedia('(pointer:fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const desktop = window.matchMedia && matchMedia('(min-width:901px)').matches;
+  if (desktop) setTimeout(() => { form.style.animation = 'none'; form.style.transform = 'rotate(-1deg)'; }, 950);
+  if (!reduced) {
+    let mi = 0;
+    setInterval(() => {
+      if (!mottoT.isConnected) return;
+      mi = (mi + 1) % MOTTO.length;
+      mottoT.classList.add('out');
+      setTimeout(() => { mottoT.textContent = MOTTO[mi]; mottoT.classList.remove('out'); mottoT.classList.remove('in'); void mottoT.offsetWidth; mottoT.classList.add('in'); }, 400);
+    }, 4500);
+  }
+  if (window.matchMedia && matchMedia('(pointer:fine)').matches && !reduced && desktop) {
     const card = form;
     card.addEventListener('mousemove', (e) => {
       const r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-      card.style.transform = 'perspective(900px) rotateY(' + (x * -4) + 'deg) rotateX(' + (y * 4) + 'deg) translateY(-2px)';
+      card.style.transform = 'perspective(900px) rotateY(' + (x * -4) + 'deg) rotateX(' + (y * 4) + 'deg) rotate(-1deg) translateY(-2px)';
     });
-    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+    card.addEventListener('mouseleave', () => { card.style.transform = 'rotate(-1deg)'; });
   }
   ping(); user.focus();
 }
