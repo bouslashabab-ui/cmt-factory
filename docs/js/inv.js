@@ -1,11 +1,11 @@
 'use strict';
 /* Inventory pages */
 const MK = { in: 'وارد', out: 'صادر', adjust: 'تسوية جرد', trin: 'تحويل (إلى)', trout: 'تحويل (من)' };
-const optsOf = (rows, f) => rows.map(r => ({ v: r.id, t: f(r) }));
+const invOpts = (rows, f) => rows.map(r => ({ v: r.id, t: f(r) }));
 async function moveDlg(kind) {
   const items = await GET('/inv/items'), whs = await GET('/inv/wh'); if (!items.length) { toast('أضف أصنافًا أولًا من شاشة الأصناف والمخازن', 'err'); return; }
-  const fl = [{ k: 'date', t: 'التاريخ', type: 'date', def: today() }, { k: 'item_id', t: 'الصنف', type: 'select', options: optsOf(items, i => i.code + ' ' + i.name) }, { k: 'wh_id', t: kind === 'transfer' ? 'من مخزن' : 'المخزن', type: 'select', options: optsOf(whs, w => w.name) }];
-  if (kind === 'transfer') fl.push({ k: 'to_wh', t: 'إلى مخزن', type: 'select', options: optsOf(whs, w => w.name) });
+  const fl = [{ k: 'date', t: 'التاريخ', type: 'date', def: today() }, { k: 'item_id', t: 'الصنف', type: 'select', options: invOpts(items, i => i.code + ' ' + i.name) }, { k: 'wh_id', t: kind === 'transfer' ? 'من مخزن' : 'المخزن', type: 'select', options: invOpts(whs, w => w.name) }];
+  if (kind === 'transfer') fl.push({ k: 'to_wh', t: 'إلى مخزن', type: 'select', options: invOpts(whs, w => w.name) });
   fl.push({ k: 'qty', t: 'الكمية', type: 'number' }); if (kind === 'in') fl.push({ k: 'unit_cost', t: 'تكلفة الوحدة', type: 'number' });
   fl.push({ k: 'ref', t: 'المرجع (فاتورة/إذن)' }, { k: 'notes', t: 'ملاحظات', full: 1 });
   const g = formGrid(fl); modal({ in: 'إذن إضافة (وارد)', out: 'إذن صرف (صادر)', transfer: 'تحويل بين المخازن' }[kind], g.el, [{ t: 'حفظ', kind: 'pri', fn: async (c) => { await POST('/inv/moves', { ...g.get(), kind }); c(); toast('تم تسجيل الحركة'); openPage('inv_stock'); } }]);
