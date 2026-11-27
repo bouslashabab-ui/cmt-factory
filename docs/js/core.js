@@ -36,6 +36,31 @@ async function api(method, path, body) {
 const GET = (p) => api('GET', p), POST = (p, b) => api('POST', p, b), PUT = (p, b) => api('PUT', p, b), DEL = (p) => api('DELETE', p);
 const qs = (o) => '?' + Object.entries(o).filter(([, v]) => v !== '' && v !== null && v !== undefined).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
 
+/* ---------- themes (saved per user) ---------- */
+const THEMES = [
+  { k: 'atelier', name: 'إنديجو أتيليه', desc: 'الهوية الافتراضية: نيلي ليلي وألباستر وخيط وردي', css: 'css/theme2.css', sw: ['#3547e0', '#f2f4fb', '#f0457a'] },
+  { k: 'classic', name: 'كلاسيك المصنع', desc: 'الشريط الداكن الأصلي بلمسات لايم ونيلي', css: '', sw: ['#0f1437', '#9aa8ff', '#a9dc45'] },
+  { k: 'oasis', name: 'الواحة الزمردية', desc: 'زمردي عميق ورملي دافئ بلمسات ذهبية', css: 'css/oasis.css', sw: ['#0e5f4b', '#faf6ec', '#d9a441'] },
+];
+function applyTheme(k) {
+  const t = THEMES.find(x => x.k === k) || THEMES[0];
+  MZ.theme = t.k;
+  try { localStorage.setItem('cmt_theme', t.k); } catch (e) { }
+  const link = document.getElementById('themeLink');
+  if (link) link.href = t.css ? t.css + '?v=31' : '';
+}
+applyTheme((() => { try { return localStorage.getItem('cmt_theme'); } catch (e) { return null; } })() || 'atelier');
+function themePicker() {
+  const grid = h('div', { class: 'thm-grid' }, THEMES.map(t => h('button', { class: 'thm-card' + (MZ.theme === t.k ? ' on' : ''), type: 'button', onclick: guard(async () => {
+    applyTheme(t.k);
+    if (MZ.token) await PUT('/theme', { theme: t.k });
+    m.close(); toast('تم تطبيق سمة «' + t.name + '»');
+  }) },
+    h('div', { class: 'thm-sw' }, t.sw.map(c => h('i', { style: { background: c } }))),
+    h('b', null, t.name), h('small', null, t.desc))));
+  const m = modal('اختر سمة النظام', h('div', null, grid, h('p', { class: 'thm-note' }, 'تُحفظ السمة في حسابك وتطبق على كل أجهزتك.')), null);
+}
+
 function toast(msg, kind = 'ok') {
   let box = $('#toasts'); if (!box) { box = h('div', { id: 'toasts' }); document.body.append(box); }
   const t = h('div', { class: 'toast ' + kind }, msg); box.append(t); SND.play(kind === 'err' ? 'err' : 'ok'); setTimeout(() => t.remove(), kind === 'err' ? 6000 : 2600);
