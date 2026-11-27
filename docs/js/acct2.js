@@ -432,5 +432,44 @@
     await refreshKpis(); await loadReport(); await loadHist(); await loadDocs();
     return root;
   };
+
+  /* ---------- detailed supplier statement: running balance + aging ---------- */
+  P2.supplier_statement = async () => {
+    const root = h('div');
+    const sups = await GET('/gl/suppliers');
+    const supSel = h('select', { class: 'inp' }, h('option', { value: '' }, '— اختر المورد —'), sups.map(x => h('option', { value: x.id }, (x.code ? x.code + ' ' : '') + x.name)));
+    const fIn = h('input', { type: 'date' }); fIn.value = today().slice(0, 4) + '-01-01';
+    const tIn = h('input', { type: 'date', value: today() });
+    const kpiBox = h('div'), ageBox = h('div'), tblBox = h('div'), noteBox = h('div');
+    const load = guard(async () => {
+      if (!supSel.value) { toast('اختر المورد أولًا', 'err'); return; }
+      const d = await GET('/gl2/supplier-statement?supplier_id=' + supSel.value + '&from=' + fIn.value + '&to=' + tIn.value);
+      kpiBox.innerHTML = ''; ageBox.innerHTML = ''; tblBox.innerHTML = ''; noteBox.innerHTML = '';
+      kpiBox.append(h('div', { class: 'kpis' },
+        VZ.kpiD('رصيد أول الفترة', d.opening),
+        VZ.kpiD('إجمالي الفواتير (دائن)', r2c(d.moves.reduce((s2, m) => s2 + m.credit, 0))),
+        VZ.kpiD('إجمالي المدفوع (مدين)', r2c(d.moves.reduce((s2, m) => s2 + m.debit, 0))),
+        VZ.kpiD('الرصيد المستحق', d.closing, undefined, d.closing <= 0)));
+      const a = d.aging;
+      ageBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'أعمار المديونية (حتى ' + d.to + ')'),
+        h('div', { class: 'kpis' },
+          VZ.kpiD('حالي (0-30 يوم)', a.cur), VZ.kpiD('31-60 يوم', a.d30), VZ.kpiD('61-90 يوم', a.d60), VZ.kpiD('أقدم من 90 يوم', a.d90, undefined, false)),
+        a.unapplied > 0.004 ? h('div', { class: 'pb' }, h('span', { class: 'okb' }, 'مدفوعات تزيد عن الفواتير (رصيد دائن للمورد): ' + fmt(a.unapplied))) : null));
+      tblBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'كشف حساب: ' + d.supplier.name + ' — من ' + d.from + ' إلى ' + d.to), table([
+        { t: 'التاريخ', k: 'date' }, { t: 'قيد', cls: 'num', f: r => r.no }, { t: 'البيان', f: r => r.memo },
+        { t: 'فاتورة (دائن)', cls: 'num', f: r => r.credit ? fmt(r.credit) : '' }, { t: 'سداد (مدين)', cls: 'num', f: r => r.debit ? fmt(r.debit) : '' },
+        { t: 'الرصيد', cls: 'num', f: r => fmt(r.balance) }
+      ], [{ date: d.from, no: '', memo: 'رصيد أول الفترة', debit: 0, credit: 0, balance: d.opening }].concat(d.moves), { foot: ['رصيد آخر الفترة', '', '', '', '', fmt(d.closing)], empty: 'لا توجد حركات' })));
+      noteBox.append(h('div', { class: 'panel' }, h('div', { class: 'pb' }, h('small', { style: { color: 'var(--mut)' } }, 'الأعمار تحسب بمطابقة المدفوعات مع الفواتير بالأقدم أولًا (FIFO). الحركات غير المرتبطة بمورد تظهر في أستاذ مساعد الموردين تحت "غير مرتبط".'))));
+    });
+    supSel.addEventListener('change', () => { if (supSel.value) load(); });
+    root.append(
+      pageHead('📑 كشف حساب مورد تفصيلي', btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())),
+      h('div', { class: 'panel' }, h('div', { class: 'filters' },
+        h('label', null, h('span', null, 'المورد'), supSel), h('label', null, h('span', null, 'من'), fIn), h('label', null, h('span', null, 'إلى'), tIn),
+        btn('عرض الكشف', load, 'pri'))),
+      kpiBox, ageBox, tblBox, noteBox);
+    return root;
+  };
   Object.assign(MZ.pages, P2);
 })();
