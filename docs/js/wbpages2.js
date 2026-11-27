@@ -8,7 +8,7 @@ function activeWin() { return document.querySelector('.win-content.on'); }
 function pageTitle() { const w = activeWin(); const t = w && w.querySelector('.page-head h2'); return t ? t.textContent.trim() : (TITLES[MZ.active] || 'تقرير'); }
 function printPage() {
   const w = activeWin(); if (!w) return;
-  const hd = h('div', { class: 'print-hd' }, h('div', null, h('b', null, MZ.settings.company_name || ''), h('div', null, pageTitle())), h('div', null, new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' }), h('br'), MZ.user ? (MZ.user.name || MZ.user.username) : ''));
+  const hd = h('div', { class: 'print-hd' }, h('div', null, h('b', null, MZ.settings.company_name || ''), h('div', null, pageTitle())), h('div', null, new Date().toLocaleDateString(window.MZ_LOC ? MZ_LOC() : 'ar-EG', { year: 'numeric', month: 'long', day: 'numeric' }), h('br'), MZ.user ? (MZ.user.name || MZ.user.username) : ''));
   w.prepend(hd); document.body.classList.add('printing');
   const done = () => { document.body.classList.remove('printing'); hd.remove(); window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done); setTimeout(() => window.print(), 150); setTimeout(done, 60000);
@@ -99,7 +99,7 @@ function barcodeSvg(text, h2) {
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + (x + 10) + ' ' + (h2 || 50) + '" width="' + Math.min(260, (x + 10) * 1.6) + '" height="' + (h2 || 50) + '" preserveAspectRatio="none" style="direction:ltr;background:#fff"><rect width="100%" height="100%" fill="#fff"/><g fill="#000">' + bars + '</g></svg>';
 }
 function sheetHd(title, sub) {
-  return h('div', { class: 'print-doc' }, h('div', { class: 'print-hd', style: 'display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px' }, h('div', null, h('b', null, MZ.settings.company_name || ''), h('div', null, title)), h('div', null, sub || new Date().toLocaleDateString('ar-EG'))));
+  return h('div', { class: 'print-doc' }, h('div', { class: 'print-hd', style: 'display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px' }, h('div', null, h('b', null, MZ.settings.company_name || ''), h('div', null, title)), h('div', null, sub || new Date().toLocaleDateString(window.MZ_LOC ? MZ_LOC() : 'ar-EG'))));
 }
 function kv(pairs) { return h('table', { class: 'grid' }, h('tbody', null, ...pairs.map(([a, b]) => h('tr', null, h('th', { style: 'width:30%;text-align:right' }, a), h('td', null, b == null ? '' : String(b)))))); }
 window.printCutSheet = function (r) {
