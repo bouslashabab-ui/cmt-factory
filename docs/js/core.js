@@ -173,8 +173,37 @@ function printEl(title, el) {
   w.document.close(); setTimeout(() => { w.focus(); w.print(); }, 400);
 }
 
+/* ---------- unsaved-changes guard ---------- */
+MZ.dirty = {};
+MZ.regDirty = (id, o) => { MZ.dirty[id] = o; };
+MZ.clearDirty = (id) => { delete MZ.dirty[id]; };
+function confirmDialog(title, msg, buttons) {
+  return new Promise(res => {
+    const ov = h('div', { class: 'mzc-ov' });
+    const close = (k) => { ov.remove(); res(k); };
+    ov.append(h('div', { class: 'mzc-box' },
+      h('div', { class: 'mzc-t' }, title),
+      msg ? h('div', { class: 'mzc-m' }, msg) : null,
+      h('div', { class: 'mzc-b' }, buttons.map(b => h('button', { class: 'btn ' + (b.kind || ''), onclick: () => close(b.k) }, b.t)))));
+    document.body.append(ov);
+  });
+}
+async function dirtyGuard(winId, proceed) {
+  const d = (MZ.dirty || {})[winId];
+  let isD = false; try { isD = !!(d && d.isDirty && d.isDirty()); } catch (e) {}
+  if (!isD) { proceed(); return; }
+  const k = await confirmDialog('تغييرات غير محفوظة', 'لديك تعديلات لم تُحفظ في هذه الشاشة. ماذا تريد أن تفعل؟', [
+    { k: 'save', t: '💾 حفظ', kind: 'pri' }, { k: 'discard', t: '🗑 تجاهل التغييرات' }, { k: 'stay', t: 'البقاء' }]);
+  if (k === 'stay') { try { history.replaceState(null, '', '#p=' + MZ.active); } catch (e) {} return; }
+  if (k === 'save') { try { const ok = await d.save(); if (ok === false) return; } catch (e) { return; } }
+  MZ.clearDirty(winId); proceed();
+}
+window.confirmDialog = confirmDialog;
+
 /* ---------- window manager (MDI tabs) ---------- */
-function openWin(id, title, build, opts = {}) { SND.play("open");
+function openWin(id, title, build, opts = {}) {
+  if (MZ.active && MZ.active !== id && MZ.dirty && MZ.dirty[MZ.active]) { dirtyGuard(MZ.active, () => openWin(id, title, build, opts)); return MZ.wins[id]; }
+  SND.play("open");
   if (MZ.wins[id]) { activate(id); if (opts.refresh) MZ.wins[id].refresh && MZ.wins[id].refresh(); return MZ.wins[id]; }
   const body = h('div', { class: 'win-content' });
   const w = { id, title, body, refresh: null };
@@ -189,14 +218,17 @@ function activate(id) {
   if (MZ.wins[id]) MZ.wins[id].body.classList.add('on');
   renderTabs();
 }
-function closeWin(id) { SND.play("close");
+function closeWin(id) {
+  if (MZ.dirty && MZ.dirty[id]) { dirtyGuard(id, () => closeWin(id)); return; }
+  SND.play("close");
   const w = MZ.wins[id]; if (!w) return;
   w.body.remove(); delete MZ.wins[id]; MZ.order = MZ.order.filter(x => x !== id);
   if (MZ.active === id) activate(MZ.order[MZ.order.length - 1] || 'home'); else renderTabs();
 }
 function renderTabs() {
   const t = $('#tabs'); if (!t) return; t.innerHTML = '';
-  MZ.order.forEach(id => { const w = MZ.wins[id]; t.append(h('div', { class: 'tab' + (id === MZ.active ? ' on' : ''), onclick: () => activate(id) }, h('span', null, w.title), id !== 'home' ? h('b', { onclick: (e) => { e.stopPropagation(); closeWin(id); } }, '×') : null)); });
+  MZ.order.forEach(id => { const w = MZ.wins[id]; t.append(h('div', { class: 'tab' + (id === MZ.active ? ' on' : ''), onclick: () => { if (MZ.active !== id && MZ.dirty && MZ.dirty[MZ.active]) dirtyGuard(MZ.active, () => activate(id)); else activate(id); } }, h('span', null, w.title), id !== 'home' ? h('b', { onclick: (e) => { e.stopPropagation(); closeWin(id); } }, '×') : null)); });
+  if (window.updateTopnav) try { window.updateTopnav(); } catch (e) {}
 }
 
 /* ---------- common layout pieces ---------- */
@@ -221,3 +253,10 @@ const INV_AR = { sale: 'فاتورة مبيعات', sale_return: 'مردود م�
 const STATUS_AR = { posted: 'مرحّلة', draft: 'مسودة', pending: 'بانتظار الاعتماد', cancelled: 'ملغاة', rejected: 'مرفوضة', converted: 'محوّلة' };
 
 const mainWh = () => (MZ.L.warehouses || []).slice().sort((a, b) => a.id - b.id)[0];
+
+window.addEventListener('beforeunload', (e) => {
+  for (const k of Object.keys(MZ.dirty || {})) {
+    const d = MZ.dirty[k];
+    try { if (d && d.isDirty && d.isDirty()) { e.preventDefault(); e.returnValue = ''; return; } } catch (x) {}
+  }
+});
