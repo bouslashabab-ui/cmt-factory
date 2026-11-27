@@ -55,6 +55,7 @@ function buildTopnav(nm) {
   const bar = h('div', { class: 'topnav' },
     h('div', { class: 'brand tn-brand', html: LOGO + '<div><h1>' + APP_NAME + '</h1></div>' }),
     h('nav', { class: 'tn-secs', 'aria-label': 'الأقسام' }, homeBtn, MENUS.filter(([t, items]) => items.filter(adminOk).length).map(([t, items]) => mkSecBtn(t, items.filter(adminOk)))),
+    h('div', { class: 'today' }, ''),
     h('div', { class: 'tn-me' }, muteBtn(), h('span', { class: 'tn-nm' }, nm), h('button', { class: 'tn-out', onclick: logout }, 'خروج')));
   document.addEventListener('click', (e) => { if (openSec && !e.target.closest('.topnav') && !e.target.closest('.tn-panel')) closePanel(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
@@ -81,7 +82,7 @@ function shell() {
     h('div', { class: 'me' }, h('div', { class: 'av' }, nm.trim().charAt(0)), h('div', null, nm, h('small', null, ROLE_AR[MZ.user.role] || '')), muteBtn(), h('button', { onclick: logout }, 'خروج')));
   const main = h('div', { class: 'main' },
     h('div', { class: 'topbar' }, h('button', { class: 'burger', onclick: () => side.classList.toggle('open') }, '☰'), h('div', { class: 'tabs', id: 'tabs' }),
-      h('button', { class: 'tbn', onclick: themePicker, title: 'سمات النظام' }, '🎨 السمات'), h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today' }, new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
+      h('button', { class: 'tbn', onclick: themePicker, title: 'سمات النظام' }, '🎨 السمات'), h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today today-plain' }, new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
     h('div', { id: 'desk' }));
   app.append(...buildTopnav(nm), side, main);
   const sync = () => document.querySelectorAll('.nv').forEach(n => n.classList.toggle('on', n.getAttribute('data-k') === MZ.active));
