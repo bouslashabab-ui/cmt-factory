@@ -10,7 +10,7 @@ const SCH = [
 `CREATE TABLE IF NOT EXISTS inv_wh(id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(80) NOT NULL UNIQUE)`,
 `CREATE TABLE IF NOT EXISTS inv_moves(id INT AUTO_INCREMENT PRIMARY KEY, date DATE NOT NULL, item_id INT NOT NULL, wh_id INT NOT NULL, kind VARCHAR(12) NOT NULL, qty DECIMAL(14,3) NOT NULL, unit_cost DECIMAL(14,4) NOT NULL DEFAULT 0, ref VARCHAR(60), notes VARCHAR(255), grp VARCHAR(20), created_by INT, INDEX(item_id), INDEX(wh_id), INDEX(date))`];
 let ready = false;
-async function ensure() { if (!ready) { for (const s of SCH) await C.db().query(s); ready = true; } const [[n]] = await C.db().query('SELECT COUNT(*) n FROM inv_wh'); if (!n.n) await C.db().query("INSERT INTO inv_wh(name) VALUES('المخزن الرئيسي')"); }
+async function ensure() { if (!ready) { for (const s of SCH) await C.db().query(s); try { await C.db().query('ALTER TABLE inv_items ADD COLUMN sell_price DECIMAL(14,2) NULL'); } catch (e) { /* exists */ } ready = true; } const [[n]] = await C.db().query('SELECT COUNT(*) n FROM inv_wh'); if (!n.n) await C.db().query("INSERT INTO inv_wh(name) VALUES('المخزن الرئيسي')"); }
 /* signed qty: in +, out -, adjust +/- stored signed, trin +, trout - */
 const sign = (m) => (m.kind === 'out' || m.kind === 'trout') ? -m.qty : m.qty;
 async function compute() {
@@ -33,7 +33,8 @@ async function api(head, req, u, id, body, q, parts) {
     if (m === 'GET') return Q('SELECT * FROM inv_items ORDER BY code');
     write(); const code = String(body.code || '').trim(), name = String(body.name || '').trim(); if (!code || !name) throw bad('الكود والاسم مطلوبان');
     const mn = Number(body.min_qty || 0); if (!(mn >= 0)) throw bad('الحد الأدنى غير صحيح');
-    try { await C.db().query('INSERT INTO inv_items(code,name,unit,min_qty) VALUES(?,?,?,?)', [code.slice(0, 30), name.slice(0, 120), String(body.unit || 'قطعة').slice(0, 20), mn]); } catch (e) { throw bad('كود الصنف مكرر'); } return { ok: true };
+    const sp = Number(body.sell_price || 0); if (!(sp >= 0)) throw bad('سعر البيع غير صحيح');
+    try { await C.db().query('INSERT INTO inv_items(code,name,unit,min_qty,sell_price) VALUES(?,?,?,?,?)', [code.slice(0, 30), name.slice(0, 120), String(body.unit || 'قطعة').slice(0, 20), mn, sp]); } catch (e) { throw bad('كود الصنف مكرر'); } return { ok: true };
   }
   if (sub === 'wh') {
     if (m === 'GET') return Q('SELECT * FROM inv_wh ORDER BY id');
