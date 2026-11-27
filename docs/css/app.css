@@ -775,5 +775,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 [dir=ltr] .totals b{direction:ltr;text-align:left}
 [dir=ltr] .stg-ar{transform:scaleX(-1);display:inline-block}
 html[dir=ltr] body{direction:ltr}
+html[dir=ltr] #app .land .login-clock{left:auto;right:30px;width:max-content}
+html[dir=ltr] #app .land[data-lt="glass"] .login-clock{right:auto;left:30px}
+@media(max-width:900px){html[dir=ltr] #app .land .login-clock{right:auto;width:max-content}}
 html[dir=ltr] .xgt{direction:ltr}
 @media(max-width:900px){[dir=ltr] .side{right:auto;left:-270px;transition:left .25s}[dir=ltr] .side.open{right:auto;left:0}}
