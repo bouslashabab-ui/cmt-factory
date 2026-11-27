@@ -1,14 +1,14 @@
 'use strict';
 /* Samy Platform: live Cairo clock, ownership footer, count-up numbers, PWA registration, offline banner */
 (function () {
-  const COPY = '© ' + new Date().getFullYear() + ' Samy Platform - Designed & Programmed by Ahmed Samy';
+  const COPY = '© ' + new Date().getFullYear() + ' Ahmed Samy - Designed & Programmed by Ahmed Samy';
   const fmtD = new Intl.DateTimeFormat('ar-EG', { timeZone: 'Africa/Cairo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const fmtT = new Intl.DateTimeFormat('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
   const tick = () => { const n = new Date(); const d = fmtD.format(n), t = fmtT.format(n); document.querySelectorAll('.sclock').forEach(e => { e.innerHTML = '<span class="ck-t">' + t + '</span><span class="ck-d">' + d + '</span>'; }); };
   const ensure = () => {
     const land = document.querySelector('.land'); if (land && !land.querySelector('.sclock')) { const c = document.createElement('div'); c.className = 'sclock login-clock'; land.append(c); }
     const today = document.querySelector('.topbar .today'); if (today && !today.classList.contains('sclock')) { today.classList.add('sclock'); today.dataset.app = '1'; }
-    const lf = document.querySelector('.land-f'); if (lf && !lf.querySelector('.copy')) { const s = document.createElement('span'); s.className = 'copy'; s.dir = 'ltr'; s.textContent = COPY; lf.append(s); }
+    const lf = document.querySelector('.land-f'); if (lf && !lf.querySelector('.copy')) { const s = document.createElement('span'); s.className = 'copy'; s.dir = 'ltr'; s.innerHTML = '<b>Samy Platform</b> &nbsp;|&nbsp; ' + COPY; lf.append(s); }
     const side = document.querySelector('.side'); if (side && !side.querySelector('.copy')) { const s = document.createElement('div'); s.className = 'copy side-copy'; s.dir = 'ltr'; s.textContent = COPY; side.append(s); }
     document.querySelectorAll('.kpi b:not([data-cu])').forEach(b => { b.dataset.cu = '1'; countUp(b); });
   };
