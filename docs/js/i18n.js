@@ -744,6 +744,8 @@
     if (!t || !AR_RE.test(t)) return null;
     const en = DICT[t];
     if (en) return s.replace(t, en);
+    const mnum = t.match(/^(\d+\.\s*)(.+)$/);
+    if (mnum) { const en2 = DICT[mnum[2].trim()]; if (en2) return s.replace(t, mnum[1] + en2); }
     for (const [ap, ep] of PREFIX) if (t.startsWith(ap)) return s.replace(t, ep + t.slice(ap.length));
     return null;
   }
