@@ -767,3 +767,13 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @media (prefers-reduced-motion:reduce){
   #app .land:before,#app .land:after,#app .land-r:before,#app .stg,#app .art,#app .lg-card:before,#app .lg-card button.go,#app .land .login-clock,#app .motto:before{animation:none!important}
 }
+
+/* ---- i18n LTR ---- */
+[dir=ltr] .toast{border-right:none;border-left:5px solid var(--lime)}
+[dir=ltr] .grid th,[dir=ltr] .tn-item,[dir=ltr] .thm-card{text-align:left}
+[dir=ltr] .lg-card input{direction:ltr;text-align:left}
+[dir=ltr] .totals b{direction:ltr;text-align:left}
+[dir=ltr] .stg-ar{transform:scaleX(-1);display:inline-block}
+html[dir=ltr] body{direction:ltr}
+html[dir=ltr] .xgt{direction:ltr}
+@media(max-width:900px){[dir=ltr] .side{right:auto;left:-270px;transition:left .25s}[dir=ltr] .side.open{right:auto;left:0}}
