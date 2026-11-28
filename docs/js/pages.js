@@ -314,6 +314,9 @@ P.settings = async () => {
   const LT_OPTS = [['classic', 'كلاسيك (الأصلي)'], ['dark', 'داكن فاخر'], ['glass', 'زجاجي فاتح'], ['emerald', 'زمردي'], ['sunset', 'غروب دافئ'], ['mono', 'أحادي تحريري'], ['violet', 'بنفسجي ملكي']];
   const ltCur = localStorage.getItem('cmt_ltheme') || s.login_theme || 'classic';
   const ltGrid = h('div', { class: 'ltp-grid' }, ...LT_OPTS.map(([v, t]) => h('div', { class: 'ltp' + (v === ltCur ? ' on' : ''), 'data-lt': v, onclick: async (ev) => { localStorage.setItem('cmt_ltheme', v); ev.currentTarget.parentElement.querySelectorAll('.ltp').forEach(x => x.classList.toggle('on', x.dataset.lt === v)); toast('تم اختيار تصميم شاشة الدخول'); try { await PUT('/settings', { login_theme: v }); } catch (e) {} } }, h('div', { class: 'ltp-p ' + v }), h('div', { class: 'ltp-n' }, t))));
+  const layCur = MZ.layout || 'classic';
+  const layGrid = h('div', { class: 'ltp-grid' }, ...LAYOUTS.map(x => h('div', { class: 'ltp' + (x.k === layCur ? ' on' : ''), 'data-lay': x.k, onclick: async (ev) => { applyLayout(x.k); ev.currentTarget.parentElement.querySelectorAll('.ltp').forEach(y => y.classList.toggle('on', y.dataset.lay === x.k)); toast('تم تطبيق تخطيط الواجهة'); try { await PUT('/settings', { inner_layout: x.k }); } catch (e) {} } }, h('div', { class: 'layp-p lay-' + x.k }), h('div', { class: 'ltp-n' }, x.name))));
+  const layPanel = h('div', { class: 'panel', style: { marginTop: '14px' } }, h('div', { class: 'ph' }, '🖥 تخطيط الواجهة الداخلية'), h('div', { class: 'pb' }, h('p', { style: { color: '#777', fontSize: '13px', margin: '0 0 10px' } }, 'اختر شكل القوائم داخل البرنامج. يُطبَّق فورًا ويُحفظ على هذا الجهاز.'), layGrid));
   const ltPanel = h('div', { class: 'panel', style: { marginTop: '14px' } }, h('div', { class: 'ph' }, '🎨 تصميم شاشة الدخول'), h('div', { class: 'pb' }, h('p', { style: { color: '#777', fontSize: '13px', margin: '0 0 10px' } }, 'اختر شكل شاشة الدخول. يُحفظ على هذا الجهاز ويظهر لكل من يسجّل دخوله منه.'), ltGrid));
   const langSel = h('select', { class: 'lang-sel', style: { padding: '9px 14px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px', minWidth: '220px' }, onchange: () => I18N_SET(langSel.value) }, h('option', { value: 'ar' }, 'العربية'), h('option', { value: 'en' }, 'English'));
   langSel.value = window.I18N ? I18N.lang : 'ar';
@@ -363,7 +366,7 @@ P.settings = async () => {
         btn('💾 1) تنزيل نسخة احتياطية كاملة', () => backupAll(), 'pri'),
         h('span', null, '2) اكتب'), rstIn, rstBtn)));
   }
-  return h('div', null, pageHead('الإعدادات'), h('div', { class: 'panel' }, h('div', { class: 'pb' }, f.el, btn('💾 حفظ', async () => { await PUT('/settings', f.get()); Object.assign(MZ.settings, f.get()); toast('تم الحفظ'); }, 'pri'), ' ', btn('🔑 تغيير كلمة مروري', pw))), ltPanel, langPanel, fontPanel, resetPanel);
+  return h('div', null, pageHead('الإعدادات'), h('div', { class: 'panel' }, h('div', { class: 'pb' }, f.el, btn('💾 حفظ', async () => { await PUT('/settings', f.get()); Object.assign(MZ.settings, f.get()); toast('تم الحفظ'); }, 'pri'), ' ', btn('🔑 تغيير كلمة مروري', pw))), ltPanel, layPanel, langPanel, fontPanel, resetPanel);
 };
 const SCREEN_PERMS = [['masters', 'الملفات الأساسية'], ['hr', 'الموظفون والمرتبات'], ['invoices', 'الفواتير'], ['fabric', 'القماش والقص والإنتاج'], ['accounts', 'حسابات العملاء'], ['inventory', 'المخزون'], ['accounting', 'المحاسبة'], ['tools', 'المساعد والتقارير']];
 P.users = async () => {
