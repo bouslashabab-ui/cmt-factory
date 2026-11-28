@@ -51,7 +51,7 @@ const VZ = (() => {
   /* KPI with change vs previous period: cur, prev numbers; goodUp=true if higher is better */
   function kpiD(t, cur, prev, goodUp, isMoney) {
     const f = isMoney === false ? (x => String(x)) : fmt; let d = null;
-    if (prev !== undefined && prev !== null) { const diff = cur - prev, pct = prev ? Math.round(diff / Math.abs(prev) * 100) : null; const up = diff > 0, good = diff === 0 ? null : (up === (goodUp !== false)); d = h('small', { class: 'dl ' + (good === null ? '' : good ? 'up' : 'dn') }, (diff > 0 ? '▲ ' : diff < 0 ? '▼ ' : '= ') + (pct === null ? fmt(Math.abs(diff)) : Math.abs(pct) + '%') + ' عن الفترة السابقة'); }
+    if (prev !== undefined && prev !== null) { const diff = cur - prev, pct = prev ? Math.round(diff / Math.abs(prev) * 100) : null; const up = diff > 0, good = diff === 0 ? null : (up === (goodUp !== false)); d = h('small', { class: 'dl ' + (good === null ? '' : good ? 'up' : 'dn') }, (diff > 0 ? '▲ ' : diff < 0 ? '▼ ' : '= ') + (pct === null ? fmt(Math.abs(diff)) : Math.abs(pct) + '%') + ' ', 'عن الفترة السابقة'); }
     return h('div', { class: 'kpi' }, h('span', null, t), h('b', null, f(cur)), d);
   }
   const prevRange = (from, to) => { const a = new Date(from + 'T00:00:00Z'), b = new Date(to + 'T00:00:00Z'), n = Math.round((b - a) / 86400000) + 1; const pe = new Date(a.getTime() - 86400000), ps = new Date(pe.getTime() - (n - 1) * 86400000); const f = x => x.toISOString().slice(0, 10); return { from: f(ps), to: f(pe) }; };
