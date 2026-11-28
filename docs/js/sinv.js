@@ -9,7 +9,7 @@
   const sel = (opts, val, attrs) => { const s = h('select', attrs || {}); s.append(...opts.map(o => h('option', { value: String(o[0]), selected: String(o[0]) === String(val) ? 'selected' : null }, o[1]))); return s; };
 
   /* ---------- invoice editor (new + edit) ---------- */
-  async function editor(editId, winKey) {
+  async function editor(editId, winKey, defType) {
     if (!META) await meta();
     let pre = null;
     if (editId) {
@@ -18,7 +18,7 @@
       if (r.invoice.type === 'quote' && r.invoice.status !== 'open') throw new Error('عرض السعر محوَّل ولا يمكن تعديله');
       pre = r;
     }
-    let type = pre ? pre.invoice.type : 'cash', grid = null, party = null, dateIn = null, whSel = null, brSel = null, stSel = null, vatIn = null, vatCb = null, notesIn = null, totalsBox = null, glBox = null;
+    let type = pre ? pre.invoice.type : (defType || 'cash'), grid = null, party = null, dateIn = null, whSel = null, brSel = null, stSel = null, vatIn = null, vatCb = null, notesIn = null, totalsBox = null, glBox = null;
     const isSale = () => type !== 'purchase';
     const r2c = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
     function totals() {
@@ -134,10 +134,11 @@
       glBox);
   }
   P2.sinv_new = () => editor(null, 'sinv_new');
+  P2.pinv_new = () => editor(null, 'pinv_new', 'purchase');
 
   /* ---------- invoice list ---------- */
-  P2.sinv_list = async () => {
-    let type = '', q = '';
+  async function listPage(defType) {
+    let type = defType || '', q = '';
     const box = h('div');
     const seg = h('div', { class: 'seg sinv-seg' });
     const search = h('input', { class: 'in', placeholder: '🔍 بحث برقم الفاتورة أو الاسم', oninput: () => { q = search.value; load(); } });
@@ -150,11 +151,13 @@
         { t: 'الإجمالي', cls: 'num', f: x => fmt(x.total) }, { t: 'الحالة', f: x => x.status === 'canceled' ? '⛔ ملغاة' : x.type === 'quote' ? (x.status === 'open' ? 'مفتوح' : 'محوَّل') : 'مرحَّلة' }],
         rows, { empty: 'لا توجد فواتير بعد', onclick: x => openPage('sinv_view_' + x.id) }));
     }
-    seg.append(h('button', { class: 'on', onclick: function () { seg.querySelectorAll('button').forEach(b => b.classList.remove('on')); this.classList.add('on'); type = ''; load(); } }, 'الكل'));
-    Object.keys(TNAMES).forEach(k => seg.append(h('button', { onclick: function () { seg.querySelectorAll('button').forEach(b => b.classList.remove('on')); this.classList.add('on'); type = k; load(); } }, TICONS[k] + ' ' + TNAMES[k])));
+    seg.append(h('button', { class: defType ? '' : 'on', onclick: function () { seg.querySelectorAll('button').forEach(b => b.classList.remove('on')); this.classList.add('on'); type = ''; load(); } }, 'الكل'));
+    Object.keys(TNAMES).forEach(k => seg.append(h('button', { class: defType === k ? 'on' : '', onclick: function () { seg.querySelectorAll('button').forEach(b => b.classList.remove('on')); this.classList.add('on'); type = k; load(); } }, TICONS[k] + ' ' + TNAMES[k])));
     await load();
-    return h('div', null, pageHead('🗂 سجل الفواتير', btn('➕ فاتورة جديدة', () => openPage('sinv_new'))), seg, search, box);
-  };
+    return h('div', null, pageHead(defType === 'purchase' ? '🗂 فواتير المشتريات' : '🗂 سجل الفواتير', btn(defType === 'purchase' ? '➕ فاتورة شراء' : '➕ فاتورة جديدة', () => openPage(defType === 'purchase' ? 'pinv_new' : 'sinv_new'))), seg, search, box);
+  }
+  P2.sinv_list = () => listPage('');
+  P2.pinv_list = () => listPage('purchase');
 
   /* ---------- invoice view / print ---------- */
   async function viewPage(id) {
