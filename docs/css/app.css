@@ -870,3 +870,5 @@ body.lay-compact .panel .pb,body.lay-compact .pb{padding:10px 14px}
 .ntf-empty{padding:22px;text-align:center;color:var(--mut)}
 .ntf-banner{display:flex;align-items:center;justify-content:center;gap:12px;background:#0f1437;color:#fff;padding:8px 14px;font-size:13px}
 @media print{.ntf-panel,.ntf-banner,.ntf-bell{display:none!important}}
+.lg-forgot{display:block;text-align:center;margin:10px 0 0;font-size:13px;color:var(--teal);text-decoration:none}
+.lg-forgot:hover{text-decoration:underline}
