@@ -42,3 +42,21 @@
 @media print{.sinv-doc{box-shadow:none;border-radius:0;max-width:none}.sd-band{-webkit-print-color-adjust:exact;print-color-adjust:exact}.sd-lines th{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media (max-width:640px){.sd-band{flex-direction:column;gap:8px;text-align:center}.sd-type{text-align:center}}
 .xg-unit{padding:8px 6px;text-align:center;color:#2a3f6e;font-size:.82rem;background:#f7f9fc}
+/* Bigger, clearer print layout (Apr 2026 invoice redesign) */
+@media print{
+  body.printing .page-head{display:none!important}
+  .sinv-editnote{display:none!important}
+  .sinv-doc{font-size:14px}
+  .sd-band{padding:26px 32px}
+  .sd-band h2{font-size:1.55rem}
+  .sd-band small{font-size:12.5px}
+  .sd-type b{font-size:1.3rem}
+  .sd-meta{padding:18px 32px;gap:14px}
+  .sd-meta span{font-size:12px}
+  .sd-meta b{font-size:15px}
+  .sd-lines th,.sd-lines td{padding:11px 14px;font-size:13px}
+  .sd-totals{margin:20px 32px;margin-right:auto;width:min(380px,80%);font-size:15px}
+  .sd-totals .grand{font-size:1.3rem}
+  .sd-notes{padding:0 32px 14px;font-size:13px}
+  .sd-foot{padding:34px 32px;font-size:13px;gap:30px}
+}
