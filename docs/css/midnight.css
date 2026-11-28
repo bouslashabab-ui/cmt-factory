@@ -93,3 +93,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(
 .sclock .ck-bar{background:linear-gradient(90deg,var(--lime2),#5c6b99)}
 .today.sclock .ck-t{color:#ffe9bd}.today.sclock .ck-d{color:#aab3cc}
 .seg button.on{color:#ffe9bd}
+/* dark-surface components that reuse --ink as a dark color in the base sheet */
+.topnav{background:#0a0e1c;color:#dfe5f2;box-shadow:0 2px 14px rgba(0,0,0,.5)}
+.tn:hover{background:rgba(255,255,255,.08)}.tn.sel{background:#2a3454;color:#ffe9bd}
+.burger{background:#1a2238;color:#ffe9bd}
+.ctab.on{background:var(--lime2);color:#191204}
+.toast{background:#1a2238;color:#e9edf8;border-right-color:var(--lime2)}
+.bar .bb i.e{background:var(--lime2)}
