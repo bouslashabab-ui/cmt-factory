@@ -18,7 +18,7 @@
   window.CLOCK_REBUILD = buildFmt;
   const setSlot = (slot, ch) => { if (slot.dataset.c === ch) return; const first = slot.dataset.c === undefined; slot.dataset.c = ch; slot.innerHTML = ''; const sp = document.createElement('span'); sp.className = first ? 'cv' : 'cv roll'; sp.textContent = ch; slot.append(sp); };
   const tickLite = () => {
-    const n = new Date(); const s = fmtT.format(n) + ' · ' + fmtR.format(n);
+    const n = new Date(); const s = fmtT.format(n) + ' · ' + fmtD.format(n);
     document.querySelectorAll('.sclock').forEach(e => { if (e.textContent !== s) e.textContent = s; });
   };
   const tick = () => {
