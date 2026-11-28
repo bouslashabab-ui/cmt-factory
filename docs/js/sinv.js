@@ -18,7 +18,7 @@
       if (r.invoice.type === 'quote' && r.invoice.status !== 'open') throw new Error('عرض السعر محوَّل ولا يمكن تعديله');
       pre = r;
     }
-    let type = pre ? pre.invoice.type : 'cash', grid = null, party = null, dateIn = null, whSel = null, brSel = null, stSel = null, vatIn = null, notesIn = null, totalsBox = null, glBox = null;
+    let type = pre ? pre.invoice.type : 'cash', grid = null, party = null, dateIn = null, whSel = null, brSel = null, stSel = null, vatIn = null, vatCb = null, notesIn = null, totalsBox = null, glBox = null;
     const isSale = () => type !== 'purchase';
     const r2c = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
     function totals() {
@@ -57,6 +57,7 @@
         h('label', null, 'الفرع', brSel),
         h('label', null, 'المخزن', whSel),
         showSettle ? h('label', null, 'السداد', stSel) : null,
+        h('label', { style: 'flex-direction:row;align-items:center;gap:8px;justify-content:flex-end;padding-bottom:6px' }, vatCb, h('span', null, 'فاتورة ضريبية')),
         h('label', null, 'ض.ق.م %', vatIn),
         h('label', { class: 'wide' }, 'ملاحظات', notesIn));
     }
@@ -64,6 +65,11 @@
     function buildHead() { headBox.innerHTML = ''; headBox.append(headFields()); }
     dateIn = h('input', { class: 'in', type: 'date', value: pre ? String(pre.invoice.date).slice(0, 10) : new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }) });
     vatIn = h('input', { class: 'in', type: 'number', min: '0', max: '100', step: '0.01', value: pre ? String(pre.invoice.vat_rate) : '14', inputmode: 'decimal', oninput: refreshTotals });
+    vatCb = h('input', { type: 'checkbox' });
+    vatCb.checked = pre ? +pre.invoice.vat_rate > 0 : String(MZ.settings.vat_default || '14') !== '0';
+    const syncVat = () => { if (!vatCb.checked) { vatIn.value = '0'; vatIn.disabled = true; } else { vatIn.disabled = false; if (!(parseFloat(vatIn.value) > 0)) vatIn.value = String(MZ.settings.vat_default && MZ.settings.vat_default !== '0' ? MZ.settings.vat_default : '14'); } refreshTotals(); };
+    vatCb.addEventListener('change', syncVat);
+    if (!vatCb.checked) { vatIn.value = '0'; vatIn.disabled = true; }
     notesIn = h('input', { class: 'in', placeholder: 'اختياري', value: pre ? (pre.invoice.notes || '') : '' });
     totalsBox = h('div', { class: 'sinv-totals' });
     glBox = h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'القيد المحاسبي (معاينة حية)'));
@@ -173,7 +179,7 @@
       pageHead(h('span', null, TICONS[v.type] + ' ' + (v.type === 'quote' ? 'عرض سعر' : 'فاتورة') + ' ' + v.no, v.status === 'canceled' ? h('span', { class: 'sinv-canceled' }, '⛔ ملغاة') : null), btn('🖨 طباعة', () => printPage()), btn('🗂 السجل', () => openPage('sinv_list')), editBtn, cancelBtn, ...convBtns),
       h('div', { class: 'sinv-doc' },
         h('div', { class: 'sd-band' }, h('div', null, h('h2', null, MZ.settings.company_name || 'إدارة مصنع الملابس'), h('small', null, 'نظام التصنيع للغير')),
-          h('div', { class: 'sd-type' }, (isP ? 'فاتورة شراء' : v.type === 'quote' ? 'عرض سعر (بروفورما)' : v.type === 'return' ? 'إشعار مرتجع مبيعات' : 'فاتورة ضريبية'), h('b', null, v.no))),
+          h('div', { class: 'sd-type' }, (isP ? 'فاتورة شراء' : v.type === 'quote' ? 'عرض سعر (بروفورما)' : v.type === 'return' ? 'إشعار مرتجع مبيعات' : (+v.vat > 0 ? 'فاتورة ضريبية' : 'فاتورة مبيعات')), h('b', null, v.no))),
         h('div', { class: 'sd-meta' },
           h('div', null, h('span', null, isP ? 'المورد' : 'العميل'), h('b', null, partyName)),
           h('div', null, h('span', null, 'التاريخ'), h('b', null, String(v.date).slice(0, 10))),
@@ -183,11 +189,14 @@
           entry ? h('div', null, h('span', null, 'قيد اليومية'), h('b', null, '#' + entry.no)) : null),
         h('table', { class: 'sd-lines' }, h('thead', null, h('tr', null, h('th', null, '#'), h('th', null, 'البيان'), h('th', null, 'الكمية'), h('th', null, 'السعر'), h('th', null, 'الخصم'), h('th', null, 'الإجمالي'))), h('tbody', null, ln)),
         h('div', { class: 'sd-totals' },
-          h('div', null, h('span', null, 'الإجمالي قبل الضريبة'), h('b', null, fmt(v.base))),
-          h('div', null, h('span', null, 'ض.ق.م (' + fmt(v.vat_rate) + '%)'), h('b', null, fmt(v.vat))),
+          +v.vat > 0 ? h('div', null, h('span', null, 'الإجمالي قبل الضريبة'), h('b', null, fmt(v.base))) : null,
+          +v.vat > 0 ? h('div', null, h('span', null, 'ض.ق.م (' + fmt(v.vat_rate) + '%)'), h('b', null, fmt(v.vat))) : null,
           h('div', { class: 'grand' }, h('span', null, 'الإجمالي المستحق'), h('b', null, fmt(v.total)))),
         v.notes ? h('div', { class: 'sd-notes' }, 'ملاحظات: ', v.notes) : null,
-        h('div', { class: 'sd-foot' }, h('span', null, 'توقيع المستلم: ........................'), h('span', null, 'توقيع المحاسب: ........................'))));
+        h('div', { class: 'sd-foot' },
+          String(MZ.settings.sig_receiver != null ? MZ.settings.sig_receiver : '1') !== '0' ? h('span', null, 'توقيع المستلم: ........................') : null,
+          String(MZ.settings.sig_accountant != null ? MZ.settings.sig_accountant : '1') !== '0' ? h('span', null, 'توقيع المحاسب: ........................') : null,
+          String(MZ.settings.sig_manager || '0') === '1' ? h('span', null, 'توقيع المدير المسؤول: ........................') : null)));
   }
   // dynamic view pages: register a resolver
   const origOpen = window.openPage;
