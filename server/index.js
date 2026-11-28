@@ -462,6 +462,17 @@ async function route(req, url, body) {
     if (m === 'DELETE' && id) { if (id === u.id) throw bad('لا يمكنك حذف حسابك'); await C.db().query('DELETE FROM users WHERE id=?', [id]); await C.audit(u, 'delete', 'user', id); return { ok: true }; }
   }
   if (head === 'audit') { needAdmin(u); return Q('SELECT * FROM audit_log ORDER BY id DESC LIMIT 500'); }
+  if (head === 'admin-reset' && m === 'POST') {
+    needAdmin(u);
+    if (String(body.confirm || '') !== 'RESET') throw bad('للتأكيد اكتب RESET بالحروف اللاتينية');
+    const WIPE = ['accruals','asset_dep','attendance','audit_log','bank_recs','clients','cut_layers','cut_orders','cut_sizes','cuts','deliveries','delivery_lines','employees','expenses','fixed_assets','gl_entries','gl_lines','inv_items','inv_moves','invoice_lines','invoices','models','outs','payments','payroll_accruals','payroll_inputs','prepaid_amort','prepaids','prod_logs','receipts','rolls','sales_invoice_lines','sales_invoices','seq','store_items','store_transfers','suppliers','vat_docs','vat_settlements'];
+    await C.db().query('SET FOREIGN_KEY_CHECKS=0');
+    for (const t of WIPE) await C.db().query('TRUNCATE TABLE `' + t + '`');
+    await C.db().query("DELETE FROM users WHERE role<>'admin'");
+    await C.db().query('SET FOREIGN_KEY_CHECKS=1');
+    await C.audit(u, 'reset', 'system', 0, 'factory reset to zero (backup downloaded by user first)');
+    return { ok: true };
+  }
   { const w = await WB.wbApi(head, req, u, id, body, q, parts); if (w !== undefined) return w; }
   if (SIMPLE[head]) return simple(req, u, head, id, body, q);
   if (head === 'receipts') return receiptsApi(req, u, id, body);
