@@ -72,6 +72,38 @@ async function login(b, ip) {
   return { token: C.sign({ uid: u.id, exp: Date.now() + 12 * 3600 * 1000 }), user: pub(u) };
 }
 
+
+// ---------- forgot password: emails a NEW temporary password (admins only) via Brevo ----------
+const forgotHits = new Map(); let forgotGlobal = [];
+function cleanEmail(v) { const e = String(v || '').trim().toLowerCase().slice(0, 160); if (!e) return null; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw bad('البريد الإلكتروني غير صحيح'); return e; }
+async function forgot(b, ip) {
+  const GENERIC = { ok: true, message: 'إذا كان الحساب مؤهلاً وتم إعداد البريد، فستصلك رسالة بكلمة مرور مؤقتة خلال دقائق.' };
+  const now = Date.now(); const HOUR = 3600000;
+  forgotGlobal = forgotGlobal.filter(t => now - t < HOUR);
+  const ipHits = (forgotHits.get(ip) || []).filter(t => now - t < HOUR);
+  if (ipHits.length >= 5 || forgotGlobal.length >= 6) return GENERIC; // silent: no enumeration, no abuse
+  ipHits.push(now); forgotHits.set(ip, ipHits); forgotGlobal.push(now);
+  const username = String(b.username || '').trim().toLowerCase();
+  const key = process.env.BREVO_API_KEY, from = process.env.MAIL_FROM;
+  if (!username || !key || !from) return GENERIC;
+  const [r] = await C.db().query("SELECT * FROM users WHERE username=? AND active=1", [username]);
+  const u = r[0]; if (!u) return GENERIC;
+  const to = String(u.email || '').trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return GENERIC;
+  if (u._last && now - u._last < 900000) return GENERIC;
+  const last = forgotHits.get('u|' + username) || 0; if (now - last < 900000) return GENERIC; forgotHits.set('u|' + username, now);
+  const crypto = require('crypto');
+  const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let tmp = ''; const bytes = crypto.randomBytes(12); for (let i = 0; i < 12; i++) tmp += alphabet[bytes[i] % alphabet.length];
+  try {
+    const resp = await fetch('https://api.brevo.com/v3/smtp/email', { method: 'POST', headers: { 'api-key': key, 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ sender: { email: from, name: 'CMT Factory' }, to: [{ email: to }], subject: 'كلمة مرور مؤقتة - نظام المصنع', htmlContent: '<div dir="rtl" style="font-family:Tahoma,Arial"><p>طلب استعادة كلمة المرور للمستخدم <b>' + username + '</b>.</p><p>كلمة المرور المؤقتة: <b style="font-size:18px;letter-spacing:1px">' + tmp + '</b></p><p>سجّل الدخول بها ثم غيّرها فورًا من الإعدادات. إذا لم تطلب ذلك فتجاهل الرسالة وغيّر كلمة مرورك.</p></div>' }) });
+    if (!resp.ok) { console.error('brevo send failed', resp.status); return GENERIC; }
+  } catch (e) { console.error('brevo error', e.message); return GENERIC; }
+  // change the password ONLY after the email was accepted by the provider
+  await C.db().query('UPDATE users SET pass_hash=? WHERE id=?', [C.hashPw(tmp), u.id]);
+  await C.audit({ id: u.id, username }, 'forgot', 'user', u.id, 'temp password emailed');
+  return GENERIC;
+}
+
 // ---------- core calculations ----------
 async function activeStages(conn) { return (await conn.query('SELECT * FROM stages WHERE active=1 ORDER BY seq,id'))[0]; }
 // returns per cut progress
@@ -424,6 +456,7 @@ async function route(req, url, body) {
   if (head === 'status') { const [r] = await C.db().query('SELECT COUNT(*) c FROM users'); return { setup_needed: r[0].c === 0 }; }
   if (head === 'setup' && m === 'POST') { await setup(body); return { ok: true }; }
   if (head === 'login' && m === 'POST') return login(body, req.socket.remoteAddress || 'ip');
+  if (head === 'forgot' && m === 'POST') return forgot(body, req.socket.remoteAddress || 'ip');
   const u = await auth(req);
   const HEAD_SCREEN = { clients: 'masters', models: 'masters', stages: 'masters', employees: 'hr', attendance: 'hr', payroll: 'hr', sinv: 'invoices', store: 'fabric', 'store-transfer': 'fabric', orders: 'fabric', outs: 'fabric', receipts: 'fabric', rolls: 'fabric', cuts: 'fabric', prod: 'fabric', deliveries: 'fabric', invoices: 'fabric', unbilled: 'fabric', payments: 'accounts', accounts: 'accounts', 'acct-statement': 'accounts', inv: 'inventory', gl: 'accounting', gl2: 'accounting', expenses: 'tools', profit: 'tools', aging: 'tools', reports: 'tools' };
   const screenKey = HEAD_SCREEN[head];
@@ -450,19 +483,21 @@ async function route(req, url, body) {
   }
   if (head === 'users') {
     needAdmin(u);
-    if (m === 'GET') { const us = await Q('SELECT * FROM users ORDER BY id'); return us.map(x => ({ id: x.id, username: x.username, name: x.name, role: x.role, active: x.active, created_at: x.created_at, perms: x.role === 'admin' ? ['*'] : screenPerms(x), custom_perms: !!x.perms })); }
+    if (m === 'GET') { const us = await Q('SELECT * FROM users ORDER BY id'); return us.map(x => ({ id: x.id, username: x.username, name: x.name, role: x.role, email: x.email || '', active: x.active, created_at: x.created_at, perms: x.role === 'admin' ? ['*'] : screenPerms(x), custom_perms: !!x.perms })); }
     if (m === 'POST') {
       const un = String(body.username || '').trim().toLowerCase();
       if (!/^[a-z0-9_.-]{3,40}$/.test(un)) throw bad('اسم المستخدم غير صحيح');
       if (String(body.password || '').length < 8) throw bad('كلمة المرور 8 أحرف على الأقل');
       const role = ['admin', 'staff', 'viewer'].includes(body.role) ? body.role : 'staff';
       const pa = Array.isArray(body.perms) ? JSON.stringify(body.perms.filter(k => ALL_SCREENS.includes(k))) : null;
-      const [r] = await C.db().query('INSERT INTO users(username,name,pass_hash,role,perms) VALUES(?,?,?,?,?)', [un, str(body.name, 120) || un, C.hashPw(body.password), role, pa]);
+      const em = cleanEmail(body.email);
+      const [r] = await C.db().query('INSERT INTO users(username,name,pass_hash,role,perms,email) VALUES(?,?,?,?,?,?)', [un, str(body.name, 120) || un, C.hashPw(body.password), role, pa, em]);
       await C.audit(u, 'create', 'user', r.insertId, un); return { id: r.insertId };
     }
     if (m === 'PUT' && id) {
       const f = [], p = [];
       if (body.name !== undefined) { f.push('name=?'); p.push(str(body.name, 120)); }
+      if (body.email !== undefined) { f.push('email=?'); p.push(cleanEmail(body.email)); }
       if (body.role !== undefined) { if (!['admin', 'staff', 'viewer'].includes(body.role)) throw bad('دور غير صحيح'); if (id === u.id && body.role !== 'admin') throw bad('لا يمكنك تغيير دور حسابك'); f.push('role=?'); p.push(body.role); }
       if (body.perms !== undefined) { if (id === u.id) throw bad('لا يمكنك تغيير صلاحيات حسابك'); p.push(body.perms === null ? null : JSON.stringify((Array.isArray(body.perms) ? body.perms : []).filter(k => ALL_SCREENS.includes(k)))); f.push('perms=?'); }
       if (body.active !== undefined) { if (id === u.id && !+body.active) throw bad('لا يمكنك إيقاف حسابك'); f.push('active=?'); p.push(+body.active ? 1 : 0); }
@@ -526,6 +561,8 @@ const server = http.createServer(async (req, res) => {
 server.listen(process.env.PORT || 8080, () => console.log('listening'));
 C.initDb().then(async (n) => {
   try { await C.db().query('ALTER TABLE users ADD COLUMN theme VARCHAR(40) NULL'); }
+  catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+  try { await C.db().query('ALTER TABLE users ADD COLUMN email VARCHAR(160) NULL'); }
   catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
   try { await C.db().query('ALTER TABLE users ADD COLUMN perms TEXT NULL'); }
   catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
