@@ -27,7 +27,8 @@ async function api(method, path, body) {
   let r;
   try {
     r = await fetch(MZ.api + path, { method, headers: { 'Content-Type': 'application/json', ...(MZ.token ? { Authorization: 'Bearer ' + MZ.token } : {}) }, body: body ? JSON.stringify(body) : undefined });
-  } catch (e) { throw new Error('تعذر الاتصال بالخادم، تحقق من الإنترنت وحاول مرة أخرى'); }
+  } catch (e) { const ob = document.querySelector('.offline-bar'); if (ob) ob.classList.add('on'); throw new Error('تعذر الاتصال بالخادم، تحقق من الإنترنت وحاول مرة أخرى'); }
+  { const ob = document.querySelector('.offline-bar'); if (ob) ob.classList.remove('on'); }
   let j = null; try { j = await r.json(); } catch (e) { }
   if (r.status === 401 && MZ.token && path !== '/login') { sessionStorage.removeItem('cmt_tok'); MZ.token = null; location.reload(); throw new Error('انتهت الجلسة'); }
   if (!r.ok) throw new Error((j && j.error) || 'خطأ غير متوقع (' + r.status + ')');
@@ -73,7 +74,7 @@ function can(perm) { return !!MZ.user; }
 const LKP = { clients: '/clients', models: '/models', stages: '/stages' };
 async function load(name, force) {
   if (!force && MZ.L[name]) return MZ.L[name];
-  try { MZ.L[name] = await GET(LKP[name]); } catch (e) { MZ.L[name] = []; }
+  try { const r = await GET(LKP[name]); MZ.L[name] = Array.isArray(r) ? r : (r && Array.isArray(r.rows) ? r.rows : []); } catch (e) { delete MZ.L[name]; return []; }
   return MZ.L[name];
 }
 const byId = (name, id) => (MZ.L[name] || []).find(x => x.id === +id);
