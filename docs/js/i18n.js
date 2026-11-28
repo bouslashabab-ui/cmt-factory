@@ -1344,6 +1344,11 @@
     'ظاهرة': 'Shown',
     'مخفية': 'Hidden',
     'توقيع المدير المسؤول: ........................': 'Manager signature: ........................',
+    'المشتريات والموردون': 'Purchases & Suppliers',
+    'فواتير المشتريات': 'Purchase Invoices',
+    'فاتورة شراء جديدة': 'New Purchase Invoice',
+    '🗂 فواتير المشتريات': '🗂 Purchase Invoices',
+    '➕ فاتورة شراء': '➕ Purchase invoice',
   };
   const AR_RE = /[؀-ۿ]/;
   let lang = 'ar';
