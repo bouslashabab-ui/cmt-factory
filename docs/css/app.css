@@ -853,3 +853,20 @@ body.lay-compact .panel .pb,body.lay-compact .pb{padding:10px 14px}
 /* remember-me row on the login card */
 .lg-remember{display:flex;align-items:center;gap:8px;margin:2px 0 10px;font-size:13px;color:var(--mut);cursor:pointer}
 .lg-remember .chk{width:16px;height:16px;accent-color:var(--teal)}
+/* ---------- notifications bell + panel ---------- */
+.ntf-wrap{position:relative;display:inline-block}
+.ntf-bell{position:relative}
+.ntf-bell .bdg{position:absolute;top:-4px;inset-inline-start:-4px;background:var(--coral);color:#fff;border-radius:9px;font-size:10px;font-weight:700;padding:1px 5px;min-width:16px;text-align:center}
+.ntf-panel{position:absolute;top:calc(100% + 8px);inset-inline-end:0;width:360px;max-width:88vw;background:#fff;border:1px solid var(--bd);border-radius:14px;box-shadow:0 18px 44px rgba(15,20,55,.22);z-index:300;overflow:hidden}
+.ntf-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--bd);background:var(--soft)}
+.ntf-list{max-height:60vh;overflow-y:auto}
+.ntf-row{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-bottom:1px solid var(--bd);cursor:pointer;font-size:13px}
+.ntf-row:hover{background:var(--soft)}
+.ntf-row.seen{opacity:.62}
+.ntf-row .tag{flex:none;margin-top:1px}
+.ntf-row small{color:var(--mut)}
+.ntf-row.ntf-upd{background:#eef6ff;font-weight:600}
+.ntf-row i{font-style:normal;font-size:18px}
+.ntf-empty{padding:22px;text-align:center;color:var(--mut)}
+.ntf-banner{display:flex;align-items:center;justify-content:center;gap:12px;background:#0f1437;color:#fff;padding:8px 14px;font-size:13px}
+@media print{.ntf-panel,.ntf-banner,.ntf-bell{display:none!important}}
