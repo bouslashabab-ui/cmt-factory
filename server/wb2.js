@@ -28,28 +28,38 @@ async function expensesApi(req, u, id, body) {
 }
 
 async function profit() {
-  const ords = await W().ordList({}); const ex = await Q('SELECT cut_code, SUM(amount) a FROM expenses GROUP BY cut_code');
+  // canonical: revenue comes from detailed-track invoices (per cut via billed delivery lines; direct invoices listed separately)
+  const cuts = await Q('SELECT t.id, t.number, t.date, t.pieces_cut pieces, c.name client_name, m.name model_name FROM cuts t JOIN clients c ON c.id=t.client_id JOIN models m ON m.id=t.model_id ORDER BY t.date DESC, t.id DESC');
+  const revRows = await Q('SELECT dl.cut_id, SUM(il.amount) rev FROM invoice_lines il JOIN delivery_lines dl ON dl.id=il.delivery_line_id GROUP BY dl.cut_id');
+  const rmap = {}; revRows.forEach(r => rmap[r.cut_id] = nn(r.rev));
+  const ex = await Q('SELECT cut_code, SUM(amount) a FROM expenses GROUP BY cut_code');
   const em = {}; ex.forEach(x => em[x.cut_code || ''] = nn(x.a));
-  const rows = ords.map(o => { const e = em[o.code] || 0; const rev = o.cost_total; return { code: o.code, client_name: o.client_name, model_name: o.model_name, pieces: o.total, revenue: rev, expenses: r2(e), profit: r2(rev - e), margin: rev ? r2((rev - e) / rev * 100) : null, per_piece: o.total ? r2((rev - e) / o.total) : null }; });
-  const seen = new Set(); const uniq = rows.filter(r => seen.has(r.code) ? false : seen.add(r.code));
-  // revenue is counted per row; expenses are attached once per code
-  const used = new Set(); rows.forEach(r => { if (used.has(r.code)) { r.expenses = 0; r.profit = r.revenue; r.margin = r.revenue ? 100 : null; } used.add(r.code); });
-  const general = r2(em[''] || 0);
+  const usedExp = new Set();
+  const rows = cuts.map(t => {
+    const rev = r2(rmap[t.id] || 0); const e = r2(em[t.number] || 0); if (e) usedExp.add(t.number);
+    return { code: t.number, client_name: t.client_name, model_name: t.model_name, pieces: t.pieces, revenue: rev, expenses: e, profit: r2(rev - e), margin: rev ? r2((rev - e) / rev * 100) : null, per_piece: t.pieces ? r2((rev - e) / t.pieces) : null };
+  });
+  const direct = await Q('SELECT i.number, i.date, i.total, c.name client_name FROM invoices i JOIN clients c ON c.id=i.client_id WHERE NOT EXISTS (SELECT 1 FROM invoice_lines il WHERE il.invoice_id=i.id AND il.delivery_line_id IS NOT NULL) ORDER BY i.date DESC, i.id DESC');
+  direct.forEach(d => { const rev = r2(d.total); rows.push({ code: d.number, client_name: d.client_name, model_name: 'فاتورة مباشرة', pieces: null, revenue: rev, expenses: 0, profit: rev, margin: rev ? 100 : null, per_piece: null }); });
+  const general = r2(Object.keys(em).filter(k => k && !usedExp.has(k)).reduce((a, k) => a + em[k], 0) + (em[''] || 0));
   return { rows, general_expenses: general, totals: { revenue: r2(rows.reduce((a, r) => a + r.revenue, 0)), expenses: r2(rows.reduce((a, r) => a + r.expenses, 0) + general) } };
 }
 
 async function aging() {
-  const W_ = W(); const ords = await W_.ordList({}); const pays = await Q('SELECT client_id, SUM(amount) p FROM payments GROUP BY client_id');
+  // canonical: debts come from detailed-track invoices, settled FIFO by payments
+  const inv = await Q('SELECT id, client_id, date, total FROM invoices');
+  const pays = await Q('SELECT client_id, SUM(amount) p FROM payments GROUP BY client_id');
   const cl = await Q('SELECT id,name FROM clients'); const nm = {}; cl.forEach(c => nm[c.id] = c.name);
   const pm = {}; pays.forEach(p => pm[p.client_id] = nn(p.p)); const t = today();
-  const by = {}; ords.forEach(o => (by[o.client_id] = by[o.client_id] || []).push(o));
+  const by = {}; inv.forEach(o => (by[o.client_id] = by[o.client_id] || []).push(o));
+  pays.forEach(p => { if (!by[p.client_id]) by[p.client_id] = []; });
   const out = [];
   for (const cid of Object.keys(by)) {
     let pool = pm[cid] || 0; const b = { b0: 0, b30: 0, b60: 0, b90: 0 };
     const list = by[cid].slice().sort((a, c) => String(dstr(a.date) || '9999').localeCompare(String(dstr(c.date) || '9999')));
     let oldest = null;
     for (const o of list) {
-      let due = o.cost_total; const use = Math.min(pool, due); pool -= use; due -= use; if (due <= 0) continue;
+      let due = nn(o.total); const use = Math.min(pool, due); pool -= use; due -= use; if (due <= 0) continue;
       const age = o.date ? Math.max(0, days(dstr(o.date), t)) : 0; if (oldest === null || age > oldest) oldest = age;
       b[age <= 30 ? 'b0' : age <= 60 ? 'b30' : age <= 90 ? 'b60' : 'b90'] += due;
     }
