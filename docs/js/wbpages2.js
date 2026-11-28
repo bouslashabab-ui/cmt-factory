@@ -133,7 +133,8 @@ document.addEventListener('keydown', (e) => {
 
 /* ---------- one-click backup (JSON + Excel of all data) and global search ---------- */
 window.backupAll = async function () {
-  const eps = [['clients', '/clients'], ['store', '/store'], ['orders', '/orders'], ['outs', '/outs'], ['payments', '/payments'], ['employees', '/employees'], ['expenses', '/expenses'], ['accounts', '/accounts'], ['aging', '/aging'], ['profit', '/profit']];
+  const ym = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }).slice(0, 7);
+  const eps = [['clients', '/clients'], ['store', '/store'], ['orders', '/orders'], ['outs', '/outs'], ['payments', '/payments'], ['employees', '/employees'], ['expenses', '/expenses'], ['accounts', '/accounts'], ['aging', '/aging'], ['profit', '/profit'], ['receipts', '/receipts'], ['cuts', '/cuts'], ['prod_logs', '/prod'], ['deliveries', '/deliveries'], ['invoices', '/invoices'], ['attendance', '/attendance?ym=' + ym], ['payroll', '/payroll?ym=' + ym]];
   const data = {}; for (const [k, p] of eps) { try { data[k] = await GET(p); } catch (e) { data[k] = { error: String(e.message || e) }; } }
   const day = new Date().toISOString().slice(0, 10);
   const secs = []; const flat = (v) => (v && typeof v === 'object') ? JSON.stringify(v) : (v == null ? '' : v);
