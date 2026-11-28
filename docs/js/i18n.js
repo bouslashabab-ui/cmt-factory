@@ -1335,6 +1335,15 @@
     'صنف جديد': 'New item',
     'مخزن جديد': 'New warehouse',
     'مورد جديد': 'New supplier',
+    'ض.ق.م افتراضيًا في فاتورة المبيعات': 'Default VAT on sales invoices',
+    'مفعّلة - فاتورة ضريبية 14%': 'On - tax invoice 14%',
+    'غير مفعّلة - فاتورة بدون ضريبة': 'Off - invoice without VAT',
+    'خانة توقيع المستلم عند الطباعة': 'Receiver signature line when printing',
+    'خانة توقيع المحاسب عند الطباعة': 'Accountant signature line when printing',
+    'خانة توقيع المدير المسؤول عند الطباعة': 'Responsible manager signature line when printing',
+    'ظاهرة': 'Shown',
+    'مخفية': 'Hidden',
+    'توقيع المدير المسؤول: ........................': 'Manager signature: ........................',
   };
   const AR_RE = /[؀-ۿ]/;
   let lang = 'ar';
