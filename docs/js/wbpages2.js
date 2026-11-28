@@ -84,7 +84,7 @@ P.aging = async () => {
   let rows = await GET('/aging'); if (!Array.isArray(rows)) rows = []; const s = (k) => rows.reduce((a, r) => a + r[k], 0);
   return h('div', null, pageHead('⏳ أعمار الديون', btn('⬇ تصدير', () => exportChooser()), btn('🖨 طباعة', printPage)),
     h('div', { class: 'kpis' }, kpi('إجمالي المتبقي على العملاء', fmt(s('total'))), kpi('أكثر من 60 يوماً', fmt(s('b60') + s('b90')))),
-    h('div', { class: 'panel' }, h('div', { class: 'pb' }, 'تُحسب بتوزيع المقبوضات على أقدم أوامر القص أولاً، ثم يُوزَّع المتبقي حسب عمر كل أمر من تاريخه.')),
+    h('div', { class: 'panel' }, h('div', { class: 'pb' }, 'تُحسب بتوزيع المقبوضات على أقدم الفواتير أولاً، ثم يُوزَّع المتبقي حسب عمر كل فاتورة من تاريخها.')),
     table([{ t: 'العميل', k: 'name' }, { t: '0-30 يوم', f: r => fmt(r.b0), cls: 'num' }, { t: '31-60 يوم', f: r => fmt(r.b30), cls: 'num' }, { t: '61-90 يوم', f: r => fmt(r.b60), cls: 'num' }, { t: 'أكثر من 90', f: r => fmt(r.b90), cls: 'num' }, { t: 'الإجمالي', f: r => h('b', null, fmt(r.total)), cls: 'num' }, { t: 'أقدم دين (يوم)', f: r => r.oldest_days === null ? '' : r.oldest_days, cls: 'num' }, { t: 'رصيد دائن', f: r => r.credit ? fmt(r.credit) : '', cls: 'num' }], rows, { empty: 'لا توجد مديونيات' }));
 };
 MZ.pages.assistant = P.assistant; MZ.pages.expenses = P.expenses; MZ.pages.profit = P.profit; MZ.pages.aging = P.aging;
