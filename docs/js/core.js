@@ -1,6 +1,6 @@
 'use strict';
 /* CMT factory - core toolkit: api, dom helpers, windows, forms, tables */
-const MZ = { api: (window.MZ_CONFIG || {}).api, token: sessionStorage.getItem('cmt_tok'), user: null, settings: {}, modules: {}, L: {}, wins: {}, order: [], active: null, pages: {} };
+const MZ = { api: (window.MZ_CONFIG || {}).api, token: sessionStorage.getItem('cmt_tok') || (() => { try { return localStorage.getItem('cmt_tok'); } catch (e) { return null; } })(), user: null, settings: {}, modules: {}, L: {}, wins: {}, order: [], active: null, pages: {} };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 function h(tag, props, ...kids) {
@@ -30,7 +30,7 @@ async function api(method, path, body) {
   } catch (e) { const ob = document.querySelector('.offline-bar'); if (ob) ob.classList.add('on'); throw new Error('تعذر الاتصال بالخادم، تحقق من الإنترنت وحاول مرة أخرى'); }
   { const ob = document.querySelector('.offline-bar'); if (ob) ob.classList.remove('on'); }
   let j = null; try { j = await r.json(); } catch (e) { }
-  if (r.status === 401 && MZ.token && path !== '/login') { sessionStorage.removeItem('cmt_tok'); MZ.token = null; location.reload(); throw new Error('انتهت الجلسة'); }
+  if (r.status === 401 && MZ.token && path !== '/login') { sessionStorage.removeItem('cmt_tok'); try { localStorage.removeItem('cmt_tok'); } catch (e) {} MZ.token = null; location.reload(); throw new Error('انتهت الجلسة'); }
   if (!r.ok) throw new Error((j && j.error) || 'خطأ غير متوقع (' + r.status + ')');
   return j;
 }
