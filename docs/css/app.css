@@ -812,13 +812,12 @@ html[dir=ltr] .xgt{direction:ltr}
 
 /* ===== short desktop screens (1366x768 / 1024x768 laptops): login fits fully ===== */
 @media(min-width:901px) and (max-height:860px){
-  #app{display:block;height:auto;min-height:100vh;overflow:auto}
-  .land{position:static;inset:auto;min-height:100vh;overflow:visible}
+  .land{grid-template-rows:auto auto;align-content:start}
   .land-l{padding:20px 40px 8px;justify-content:flex-start}
   .land h1{font-size:clamp(28px,4vw,48px);margin:10px 0 8px;letter-spacing:-1px}
   .land .lead{font-size:14.5px;line-height:1.6;margin:0 0 12px}
   .land-r{overflow:visible;align-items:flex-start;padding:16px}
-  #app .land .lg-card{zoom:1.1;transform:none}
+  #app .land .lg-card{zoom:1.1}
   .land-f{padding:8px 24px}
   .login-clock{display:none!important}
 }
