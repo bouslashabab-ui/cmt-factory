@@ -2,6 +2,7 @@
 /* Samy Platform: live Cairo clock, ownership footer, count-up numbers, PWA registration, offline banner */
 (function () {
   const COPY = '© ' + new Date().getFullYear() + ' Ahmed Samy - Designed & Programmed by Ahmed Samy';
+  const LITE = /Electron/.test(navigator.userAgent) || (typeof document !== 'undefined' && document.documentElement.classList.contains('lite'));
   let fmtD, fmtT, fmtP, fmtW, fmtH, fmtR;
   const buildFmt = () => {
     const L = (window.I18N && I18N.lang === 'en') ? 'en-GB' : 'ar-EG';
@@ -16,7 +17,12 @@
   buildFmt();
   window.CLOCK_REBUILD = buildFmt;
   const setSlot = (slot, ch) => { if (slot.dataset.c === ch) return; const first = slot.dataset.c === undefined; slot.dataset.c = ch; slot.innerHTML = ''; const sp = document.createElement('span'); sp.className = first ? 'cv' : 'cv roll'; sp.textContent = ch; slot.append(sp); };
+  const tickLite = () => {
+    const n = new Date(); const s = fmtT.format(n) + ' · ' + fmtR.format(n);
+    document.querySelectorAll('.sclock').forEach(e => { if (e.textContent !== s) e.textContent = s; });
+  };
   const tick = () => {
+    if (LITE) { tickLite(); return; }
     const n = new Date(); const ps = fmtP.formatToParts(n); const chars = []; let sec = false;
     ps.forEach(p => { if (p.type === 'literal') { if (p.value.includes(':')) chars.push({ c: ':', k: 'sep' }); } else if (p.type === 'dayPeriod') { chars.push({ c: ' ', k: 'sp' }); chars.push({ c: p.value, k: 'ap' }); } else { for (const ch of p.value) chars.push({ c: ch, k: p.type === 'second' ? 'sec' : 'dg' }); } });
     document.querySelectorAll('.sclock').forEach(e => {
@@ -31,7 +37,7 @@
     const today = document.querySelector('.topnav .today'); if (today && !today.classList.contains('sclock')) { today.classList.add('sclock', 'calx'); today.dataset.app = '1'; today.title = 'اضغط للتبديل بين التاريخ الميلادي والهجري'; }
     const lf = document.querySelector('.land-f'); if (lf && !lf.querySelector('.copy')) { const s = document.createElement('span'); s.className = 'copy'; s.dir = 'ltr'; s.innerHTML = '<b>Samy Platform</b> &nbsp;|&nbsp; ' + COPY; lf.append(s); }
     const side = document.querySelector('.side'); if (side && !side.querySelector('.copy')) { const s = document.createElement('div'); s.className = 'copy side-copy'; s.dir = 'ltr'; s.textContent = COPY; side.append(s); }
-    document.querySelectorAll('.kpi b:not([data-cu])').forEach(b => { b.dataset.cu = '1'; countUp(b); });
+    document.querySelectorAll('.kpi b:not([data-cu])').forEach(b => { b.dataset.cu = '1'; if (!LITE) countUp(b); });
   };
   function countUp(el) {
     const txt = el.textContent.trim(); const m = txt.match(/^(-?)([\d,]+)(\.\d+)?$/); if (!m) return; const dec = m[3] ? m[3].length - 1 : 0; const target = parseFloat(txt.replace(/,/g, '')); if (!isFinite(target) || Math.abs(target) < 2) return;
@@ -44,8 +50,9 @@
     c.classList.remove('calpop'); void c.offsetWidth; c.classList.add('calpop');
     try { if (window.SND && SND.play) SND.play('open'); } catch (e) {}
   });
-  new MutationObserver(ensure).observe(document.body, { childList: true, subtree: true });
-  ensure(); tick(); setInterval(tick, 1000);
+  let ensT = null;
+  new MutationObserver(() => { if (LITE) { if (ensT) return; ensT = setTimeout(() => { ensT = null; ensure(); }, 700); } else ensure(); }).observe(document.body, { childList: true, subtree: true });
+  ensure(); tick(); setInterval(tick, LITE ? 5000 : 1000);
   const banner = document.createElement('div'); banner.className = 'offline-bar'; banner.textContent = 'لا يوجد اتصال بالإنترنت. يمكنك تصفح الشاشات المحفوظة، والحفظ يحتاج اتصالاً.'; document.body.append(banner);
   const net = () => banner.classList.toggle('on', !navigator.onLine); window.addEventListener('online', net); window.addEventListener('offline', net); net();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
