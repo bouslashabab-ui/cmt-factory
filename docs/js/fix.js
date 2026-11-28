@@ -8,7 +8,10 @@
   try {
     var w = window.innerWidth || screen.width;
     var z = w >= 3400 ? 2 : w >= 2500 ? 1.7 : w >= 2100 ? 1.35 : 1;
-    var cap = (window.innerHeight || screen.height) / 960;
+    /* never shrink below 1: the login card needs ~1010 CSS px of height, so a short
+       window (1366x768) must keep zoom 1 instead of scaling down. */
+    var cap = (window.innerHeight || screen.height) / 1010;
+    if (cap < 1) cap = 1;
     if (z > cap) z = cap;
     z = Math.round(z * 100) / 100;
     document.documentElement.style.setProperty('--zoom', z);
