@@ -157,16 +157,86 @@ window.globalSearch = async function (q) {
 };
 (function () { const add = () => { const tb = document.querySelector('.topbar'); if (!tb || tb.querySelector('.gsearch')) return; const inp = h('input', { class: 'gsearch', placeholder: '🔎 بحث شامل (كود/عميل/باركود)', style: 'padding:6px 10px;border-radius:8px;border:1px solid #ccc;min-width:180px', onkeydown: (e) => { if (e.key === 'Enter') { e.stopPropagation(); globalSearch(inp.value); } } }); const b = h('button', { class: 'tbn', onclick: () => backupAll() }, '💾 نسخة احتياطية'); const t = tb.querySelector(':scope > .tbn'); tb.insertBefore(b, t); tb.insertBefore(inp, b); }; new MutationObserver(add).observe(document.body, { childList: true, subtree: true }); })();
 
-/* ---------- AI helper panel (Gemini free tier; only aggregated numbers leave the server) ---------- */
+/* ---------- AI chat assistant (Gemini free tier): answers, drafts text, opens screens, prepares draft creates with explicit confirm ---------- */
 (function () {
   const base = P.assistant;
+  const F_AR = { code: 'الكود', name: 'الاسم', phone: 'الهاتف', address: 'العنوان', notes: 'ملاحظات', client_id: 'العميل', description: 'الوصف', price: 'السعر', date: 'التاريخ', amount: 'المبلغ', method: 'طريقة الدفع', category: 'البند', cut_code: 'أمر القص' };
+  const copyText = (t, b) => {
+    const done = () => { if (b) { b.textContent = '✓ تم النسخ'; setTimeout(() => { b.textContent = '📋 نسخ'; }, 1500); } };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, () => {});
+    else { const ta = h('textarea', { style: { position: 'fixed', opacity: '0' } }, t); document.body.append(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) {} ta.remove(); }
+  };
   P.assistant = async () => {
     const root = await base();
-    const inp = h('input', { placeholder: 'اسأل المساعد: مثلاً "كم نسبة الهالك؟" أو "ما أهم مشكلة الآن؟"', style: 'width:70%;padding:8px;border:1px solid #ccc;border-radius:8px' });
-    const out = h('div', { style: 'margin-top:10px;white-space:pre-wrap;line-height:1.8' });
-    const go = async () => { const q = inp.value.trim(); if (!q) return; out.textContent = '... جاري التفكير'; try { const r = await POST('/ai-ask', { question: q }); out.textContent = r.answer || r.error || ''; } catch (e) { out.textContent = String(e.message || e); } };
-    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); go(); } });
-    root.prepend(h('div', { class: 'panel' }, h('div', { class: 'ph' }, '💬 اسأل المساعد (Gemini)'), h('div', { class: 'pb' }, inp, ' ', btn('إرسال', go, 'pri'), out, h('small', { style: 'display:block;margin-top:8px;color:#666' }, 'يُرسل إلى الذكاء الاصطناعي أرقام مجمّعة فقط (بدون أسماء عملاء أو أكواد). النسخة المجانية قد تستخدم المحتوى لتحسين خدمات جوجل.'))));
+    const hist = [];
+    const msgs = h('div', { class: 'ai-msgs' });
+    const quotaEl = h('span', { class: 'ai-quota' }, '');
+    const inp = h('input', { class: 'inp ai-inp', placeholder: 'اكتب طلبك هنا: اسأل عن رقم، اطلب صياغة رسالة، أو قل: أضف عميلًا جديدًا...' });
+    const sendBtn = h('button', { class: 'btn pri', type: 'button', onclick: () => send() }, 'إرسال');
+    const bubble = (cls, ...kids) => { const b = h('div', { class: 'ai-m ' + cls }, ...kids); msgs.append(b); msgs.scrollTop = msgs.scrollHeight; return b; };
+
+    const openBtn = (pg) => h('button', { class: 'btn sm pri ai-open', type: 'button', onclick: () => openPage(pg) }, '↗ فتح الشاشة: ' + (TITLES[pg] || pg));
+    const draftCard = (d) => {
+      const cp = h('button', { class: 'btn sm', type: 'button', onclick: () => copyText(d.text, cp) }, '📋 نسخ');
+      return h('div', { class: 'ai-card ai-draft' }, h('b', null, '✍ ' + (d.title || 'مسودة نص')), h('div', { class: 'ai-draft-text' }, d.text), h('div', { class: 'ai-act' }, cp));
+    };
+    const createCard = (cr) => {
+      const rows = Object.entries(cr.fields).map(([k, v]) => h('tr', null, h('td', null, F_AR[k] || k), h('td', null, k === 'client_id' ? (nameOf('clients', v) || ('#' + v)) : String(v))));
+      const foot = h('div', { class: 'ai-act' });
+      const card = h('div', { class: 'ai-card' }, h('b', null, '📝 مسودة: ' + cr.label), h('table', { class: 'ai-fields' }, h('tbody', null, rows)), foot, h('small', { class: 'ai-hint' }, 'لن يُحفظ أي شيء قبل ضغط "تأكيد الإنشاء". الحفظ يتم بصلاحياتك ويُسجَّل باسمك في سجل المراجعة.'));
+      const ok = h('button', { class: 'btn sm pri', type: 'button', onclick: guard(async () => {
+        ok.disabled = true; no.disabled = true;
+        try {
+          const res = await POST(cr.endpoint, cr.fields);
+          foot.remove();
+          card.classList.add('done');
+          card.append(h('div', { class: 'ai-done' }, '✅ تم إنشاء «' + cr.label + '»' + (res && res.id ? ' برقم ' + res.id : '') + '. سُجّلت العملية باسمك.'));
+          if (cr.entity === 'client') { try { await load('clients', true); } catch (e) {} }
+          if (cr.entity === 'model') { try { await load('models', true); } catch (e) {} }
+        } catch (e) { ok.disabled = false; no.disabled = false; throw e; }
+      }) }, '✔ تأكيد الإنشاء');
+      const no = h('button', { class: 'btn sm', type: 'button', onclick: () => { foot.remove(); card.classList.add('off'); card.append(h('div', { class: 'ai-cancelled' }, 'أُلغيت المسودة، لم يُحفظ أي شيء.')); } }, '✖ إلغاء');
+      foot.append(ok, no);
+      return card;
+    };
+    const renderReply = (r) => {
+      const kids = [];
+      if (r.say) kids.push(h('div', { class: 'ai-say' }, r.say));
+      if (r.draft) kids.push(draftCard(r.draft));
+      if (r.open) kids.push(openBtn(r.open));
+      if (r.create) kids.push(createCard(r.create));
+      if (!kids.length) kids.push(h('div', { class: 'ai-say' }, 'لم يصل رد مفيد، حاول مرة أخرى.'));
+      bubble('bot', ...kids);
+      if (r.quota) quotaEl.textContent = 'طلبات اليوم: ' + r.quota.used + ' / ' + r.quota.limit + ' (حد آمن أقل من سقف النسخة المجانية)';
+    };
+    const send = async (preset) => {
+      const q = String(preset || inp.value || '').trim(); if (!q || sendBtn.disabled) return;
+      inp.value = ''; bubble('user', q);
+      const wait = bubble('bot wait', '… جاري التفكير');
+      sendBtn.disabled = true;
+      try {
+        const r = await POST('/ai-chat', { message: q, lang: (window.I18N && I18N.lang) || 'ar', history: hist.slice(-6) });
+        wait.remove();
+        if (r.error) { bubble('bot err', r.error); }
+        else { hist.push({ role: 'user', text: q }, { role: 'model', text: r.say || '' }); renderReply(r); }
+      } catch (e) { wait.remove(); bubble('bot err', String(e.message || e)); }
+      sendBtn.disabled = false; inp.focus();
+    };
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); send(); } });
+    const chips = h('div', { class: 'ai-chips' }, ['📊 ملخص أرقام المصنع الآن', '✉ اكتب رسالة واتساب مهذبة لعميل بخصوص تسليم متأخر', '🔎 ما أوامر القص المفتوحة حاليًا؟'].map(c => h('button', { class: 'ai-chip', type: 'button', onclick: () => send(c.replace(/^[^\s]+\s/, '')) }, c)));
+
+    bubble('bot',
+      h('div', { class: 'ai-say' }, 'أهلًا! أنا مساعد المصنع الذكي. أستطيع:'),
+      h('ul', { class: 'ai-cap' },
+        h('li', null, 'الإجابة عن أسئلتك من أرقام النظام وسجلاته (حسب صلاحياتك)'),
+        h('li', null, 'صياغة رسائل للعملاء وملاحظات للفواتير جاهزة للنسخ'),
+        h('li', null, 'فتح الشاشات التي تحتاجها'),
+        h('li', null, 'تجهيز مسودات إدخال (عميل، موديل، دفعة، مصروف) لا تُحفظ إلا بعد تأكيدك')),
+      h('small', { class: 'ai-hint' }, 'أعمل على النسخة المجانية من Gemini: يُرسَل سؤالك والسجلات التي يستدعيها فقط إلى جوجل، وقد تتأثر الطلبات بالحدود اليومية للنسخة المجانية. لا أستطيع التعديل أو الحذف أو إنشاء فواتير، لكنني أفتح لك الشاشة المناسبة.'));
+
+    root.prepend(h('div', { class: 'panel ai-panel' },
+      h('div', { class: 'ph' }, '💬 مساعد المصنع الذكي'),
+      h('div', { class: 'pb' }, msgs, chips, h('div', { class: 'ai-form' }, inp, sendBtn), h('div', { class: 'ai-foot' }, quotaEl))));
     return root;
   };
   MZ.pages.assistant = P.assistant;
