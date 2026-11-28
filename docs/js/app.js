@@ -253,6 +253,7 @@ function loginScreen() {
   const ping = async (n = 0) => {
     try {
       const st = await GET('/status'); go.disabled = false; go.classList.remove('busy'); msg.textContent = '';
+      if (st.login_theme && LT_DEF.some(x => x[0] === st.login_theme) && land.dataset.lt !== st.login_theme) { land.dataset.lt = st.login_theme; try { localStorage.setItem('cmt_ltheme', st.login_theme); } catch (x) {} }
       if (st.setup_needed) { setupMode = true; title.textContent = 'إعداد النظام لأول مرة'; sub.textContent = 'أنشئ حساب مدير النظام'; compBox.style.display = 'block'; go.textContent = 'إنشاء الحساب والدخول'; }
     } catch (e) { msg.textContent = n < 2 ? 'جاري الاتصال بالخادم...' : 'الخادم يستيقظ، قد يستغرق ذلك حتى دقيقة...'; setTimeout(() => ping(n + 1), 4000); }
   };
