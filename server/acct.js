@@ -90,13 +90,13 @@ async function api(head, req, u, id, body, q, parts) {
       const kind = ['normal', 'adjusting'].includes(body.kind) ? body.kind : 'normal'; const conn = await C.db().getConnection();
       try { await conn.beginTransaction(); const r = await post(conn, body.date, body.memo, kind, body.lines || [], { uid: u.id }); await conn.commit(); await C.audit(u, 'create', 'gl_entry', r.id); return r; } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
     }
-    if (m === 'DELETE' && id) { // reversal, never delete
-      const [e] = await Q('SELECT * FROM gl_entries WHERE id=?', [id]); if (!e) throw new HttpError(404, 'غير موجود');
-      if (e.reversed_of) throw bad('هذا قيد عكسي بالفعل'); if ((await Q('SELECT id FROM gl_entries WHERE reversed_of=?', [id])).length) throw bad('القيد معكوس سابقًا');
+    if (m === 'DELETE' && (id || +parts[2])) { const eid = id || +parts[2]; // reversal, never delete
+      const [e] = await Q('SELECT * FROM gl_entries WHERE id=?', [eid]); if (!e) throw new HttpError(404, 'غير موجود');
+      if (e.reversed_of) throw bad('هذا قيد عكسي بالفعل'); if ((await Q('SELECT id FROM gl_entries WHERE reversed_of=?', [eid])).length) throw bad('القيد معكوس سابقًا');
       if (e.kind === 'closing') throw bad('قيود الإقفال تُلغى من شاشة الإقفال'); const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }); await lockGuard(date);
-      const ls = await Q('SELECT * FROM gl_lines WHERE entry_id=?', [id]); const conn = await C.db().getConnection();
-      try { await conn.beginTransaction(); await post(conn, date, 'عكس القيد رقم ' + e.no, 'normal', ls.map(l => ({ account_id: l.account_id, debit: l.credit, credit: l.debit })), { reversed_of: id, uid: u.id }); await conn.commit(); } catch (x) { await conn.rollback(); throw x; } finally { conn.release(); }
-      await C.audit(u, 'reverse', 'gl_entry', id); return { ok: true };
+      const ls = await Q('SELECT * FROM gl_lines WHERE entry_id=?', [eid]); const conn = await C.db().getConnection();
+      try { await conn.beginTransaction(); await post(conn, date, 'عكس القيد رقم ' + e.no, 'normal', ls.map(l => ({ account_id: l.account_id, debit: l.credit, credit: l.debit })), { reversed_of: eid, uid: u.id }); await conn.commit(); } catch (x) { await conn.rollback(); throw x; } finally { conn.release(); }
+      await C.audit(u, 'reverse', 'gl_entry', eid); return { ok: true };
     }
   }
   if (sub === 'autopost' && m === 'POST') { write(); const n = await autoPost(u.id); return { posted: n }; }
