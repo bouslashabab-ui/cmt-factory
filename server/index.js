@@ -77,31 +77,30 @@ async function login(b, ip) {
 const forgotHits = new Map(); let forgotGlobal = [];
 function cleanEmail(v) { const e = String(v || '').trim().toLowerCase().slice(0, 160); if (!e) return null; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw bad('البريد الإلكتروني غير صحيح'); return e; }
 async function forgot(b, ip) {
-  const GENERIC = { ok: true, message: 'إذا كان الحساب مؤهلاً وتم إعداد البريد، فستصلك رسالة بكلمة مرور مؤقتة خلال دقائق.' };
+  const R = (ok, message) => ({ ok, message });
   const now = Date.now(); const HOUR = 3600000;
   forgotGlobal = forgotGlobal.filter(t => now - t < HOUR);
   const ipHits = (forgotHits.get(ip) || []).filter(t => now - t < HOUR);
-  if (ipHits.length >= 5 || forgotGlobal.length >= 6) return GENERIC; // silent: no enumeration, no abuse
+  if (ipHits.length >= 5 || forgotGlobal.length >= 6) return R(false, 'محاولات كثيرة، حاول بعد ساعة.');
   ipHits.push(now); forgotHits.set(ip, ipHits); forgotGlobal.push(now);
   const username = String(b.username || '').trim().toLowerCase();
   const key = process.env.BREVO_API_KEY, from = process.env.MAIL_FROM;
-  if (!username || !key || !from) return GENERIC;
+  if (!username) return R(false, 'اكتب اسم المستخدم.');
+  if (!key || !from) return R(false, 'خدمة البريد غير مُعدّة على الخادم.');
   const [r] = await C.db().query("SELECT * FROM users WHERE username=? AND active=1", [username]);
-  const u = r[0]; if (!u) return GENERIC;
-  const to = String(u.email || '').trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return GENERIC;
-  if (u._last && now - u._last < 900000) return GENERIC;
-  const last = forgotHits.get('u|' + username) || 0; if (now - last < 900000) return GENERIC; forgotHits.set('u|' + username, now);
+  const u = r[0]; if (!u) return R(false, 'اسم المستخدم غير موجود أو غير نشط.');
+  const to = String(u.email || '').trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return R(false, 'لا يوجد بريد إلكتروني مسجل لهذا المستخدم. اطلب من مدير النظام إضافته من شاشة المستخدمين.');
+  const last = forgotHits.get('u|' + username) || 0; if (now - last < 900000) return R(false, 'تم الإرسال قبل قليل، انتظر 15 دقيقة.'); forgotHits.set('u|' + username, now);
   const crypto = require('crypto');
   const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let tmp = ''; const bytes = crypto.randomBytes(12); for (let i = 0; i < 12; i++) tmp += alphabet[bytes[i] % alphabet.length];
   try {
     const resp = await fetch('https://api.brevo.com/v3/smtp/email', { method: 'POST', headers: { 'api-key': key, 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ sender: { email: from, name: 'CMT Factory' }, to: [{ email: to }], subject: 'كلمة مرور مؤقتة - نظام المصنع', htmlContent: '<div dir="rtl" style="font-family:Tahoma,Arial"><p>طلب استعادة كلمة المرور للمستخدم <b>' + username + '</b>.</p><p>كلمة المرور المؤقتة: <b style="font-size:18px;letter-spacing:1px">' + tmp + '</b></p><p>سجّل الدخول بها ثم غيّرها فورًا من الإعدادات. إذا لم تطلب ذلك فتجاهل الرسالة وغيّر كلمة مرورك.</p></div>' }) });
-    if (!resp.ok) { console.error('brevo send failed', resp.status); return GENERIC; }
-  } catch (e) { console.error('brevo error', e.message); return GENERIC; }
-  // change the password ONLY after the email was accepted by the provider
+    if (!resp.ok) { console.error('brevo send failed', resp.status); forgotHits.delete('u|' + username); return R(false, 'فشل إرسال البريد (' + resp.status + '). لم تتغير كلمة المرور.'); }
+  } catch (e) { console.error('brevo error', e.message); forgotHits.delete('u|' + username); return R(false, 'تعذر الاتصال بخدمة البريد. لم تتغير كلمة المرور.'); }
   await C.db().query('UPDATE users SET pass_hash=? WHERE id=?', [C.hashPw(tmp), u.id]);
   await C.audit({ id: u.id, username }, 'forgot', 'user', u.id, 'temp password emailed');
-  return GENERIC;
+  const at = to.indexOf('@'); return R(true, 'تم إرسال كلمة مرور مؤقتة إلى ' + to[0] + '***' + to.slice(at) + ' (راجع Spam أيضًا).');
 }
 
 // ---------- core calculations ----------
