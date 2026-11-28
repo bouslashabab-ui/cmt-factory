@@ -106,3 +106,18 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(
 .thm-card.on{border-color:var(--lime2);box-shadow:0 0 0 3px rgba(217,180,92,.22)}
 .thm-card b{color:#e9edf8}.thm-card small{color:#8b93ad}
 .thm-note{color:#8b93ad}
+/* contrast fixes: toolbar buttons, topnav active, white-surface widgets */
+.tbn{background:#1a2238;color:#dfe5f2;border-color:#2c3656}
+.tbn:hover{background:#2a3454;border-color:var(--lime2);color:#ffe9bd}
+.tn-sec{color:#aab3cc}
+.tn-sec:hover{background:rgba(255,255,255,.08);color:#fff}
+.tn-sec.on{background:rgba(217,180,92,.22);color:#ffe9bd}
+.backbtn{background:#1a2238;border-color:#2c3656;color:#e9edf8}
+.backbtn:hover{border-color:var(--lime2);color:#ffe9bd}
+.rb{background:#1a2238;border-color:#2c3656;color:#dfe5f2}
+.rb:hover{border-color:var(--lime2);color:#ffe9bd}
+.kcard{background:#141b30;border-color:#242d49;color:#e9edf8}
+.qa-b{background:#1a2238;border-color:#2c3656;color:#e9edf8}
+.qa-b:hover{background:#2a3454;box-shadow:0 8px 20px rgba(0,0,0,.45)}
+.sq:hover{background:#1a2238;border-color:var(--lime2)}
+.gl-row select,.gl-row input,.rng input{background:#0f1527;border-color:#2c3656;color:#e9edf8}
