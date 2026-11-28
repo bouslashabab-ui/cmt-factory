@@ -101,9 +101,24 @@ async function api(head, req, u, id, body, q, parts) {
   }
   if (sub === 'autopost' && m === 'POST') { write(); const n = await autoPost(u.id); return { posted: n }; }
   if (sub === 'suppliers') {
-    if (m === 'GET') return Q('SELECT * FROM suppliers WHERE active=1 ORDER BY name');
-    write(); const nm = String(body.name || '').trim(); if (!nm) throw bad('اسم المورد مطلوب'); const code = String(body.code || '').trim() || ('S' + String(Date.now()).slice(-6));
-    try { await C.db().query('INSERT INTO suppliers(code,name,phone,notes) VALUES(?,?,?,?)', [code.slice(0, 30), nm.slice(0, 160), String(body.phone || '').slice(0, 40), String(body.notes || '').slice(0, 250)]); } catch (e) { throw bad('كود المورد مكرر'); } return { ok: true };
+    if (m === 'GET') return Q('SELECT * FROM suppliers ORDER BY name');
+    write();
+    const sid = id || +parts[2] || 0;
+    if (m === 'PUT' && sid) {
+      const nm = String(body.name || '').trim(); if (!nm) throw bad('اسم المورد مطلوب');
+      const act = body.active === 0 || body.active === '0' || body.active === false ? 0 : 1;
+      await C.db().query('UPDATE suppliers SET name=?, phone=?, notes=?, active=? WHERE id=?', [nm.slice(0, 160), String(body.phone || '').slice(0, 40), String(body.notes || '').slice(0, 250), act, sid]);
+      await C.audit(u, 'update', 'supplier', sid, nm); return { ok: true };
+    }
+    if (m === 'DELETE' && sid) {
+      const [a] = await Q('SELECT COUNT(*) c FROM sales_invoices WHERE supplier_id=?', [sid]);
+      const [b] = await Q('SELECT COUNT(*) c FROM gl_lines WHERE supplier_id=?', [sid]);
+      if (a.c || b.c) throw bad('لا يمكن حذف المورد: عليه فواتير أو قيود مسجلة. عدّله إلى غير نشط بدل الحذف');
+      await C.db().query('DELETE FROM suppliers WHERE id=?', [sid]); await C.audit(u, 'delete', 'supplier', sid); return { ok: true };
+    }
+    const nm = String(body.name || '').trim(); if (!nm) throw bad('اسم المورد مطلوب'); const code = String(body.code || '').trim() || ('S' + String(Date.now()).slice(-6));
+    try { await C.db().query('INSERT INTO suppliers(code,name,phone,notes) VALUES(?,?,?,?)', [code.slice(0, 30), nm.slice(0, 160), String(body.phone || '').slice(0, 40), String(body.notes || '').slice(0, 250)]); } catch (e) { throw bad('كود المورد مكرر'); }
+    await C.audit(u, 'create', 'supplier', 0, nm); return { ok: true };
   }
   if (sub === 'suppay' && m === 'POST') { // pay a supplier: Dr 2100 (supplier) / Cr cash or bank
     write(); const amt = r2(body.amount), sid = +body.supplier_id; if (!(amt > 0)) throw bad('المبلغ غير صحيح'); if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date || '')) throw bad('التاريخ غير صحيح');
