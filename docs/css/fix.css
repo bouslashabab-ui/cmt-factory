@@ -1,0 +1,50 @@
+/* ===== CMT Factory: display fix =====================================================
+   Goal: readable text and a full-size desktop layout from a 1366x768 Windows 7 laptop
+   (Electron 22 / Chromium 108) up to 4K, without touching the phone layout or modern
+   browsers. Loaded after app.css and after the theme stylesheet, so these rules win.
+   ==================================================================================== */
+
+/* 1) root zoom is set by js/fix.js on very large screens. vh is not divided by root zoom,
+      so the shell height compensates with the same factor (otherwise it scrolls double). */
+:root{--zoom:1}
+#app{height:calc(100vh / var(--zoom,1))}
+
+/* 2) login grid: an fr column cannot shrink below its content, so the saved-device card used
+      to widen the login column, squeeze the marketing column and stack the stages like a phone. */
+#app .land[data-lt]{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}
+
+/* 3) the three production stages stay on one row at every width (they used to wrap to 3 rows) */
+.stages{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:10px}
+.stages>.stg{min-width:0}
+
+/* 4) short screens (1366x768 laptops): the login page fits without scrolling */
+@media(min-width:901px) and (max-height:830px){
+  #app .land[data-lt] .land-l{padding:20px 54px 8px}
+  #app .land[data-lt] h1{font-size:clamp(26px,3.2vw,42px);margin:10px 0 8px;letter-spacing:-.5px}
+  #app .land[data-lt] .lead{font-size:16px;line-height:1.62;margin:0 0 12px;max-width:620px}
+  #app .land[data-lt] .art{width:min(320px,100%);margin-top:12px}
+  #app .land[data-lt] .motto{min-height:28px;margin-bottom:12px}
+  #app .stg{padding:9px 12px}
+  #app .land-f{padding:8px 32px}
+  #app .land[data-lt] .lg-card{padding:30px 34px}
+  #app .lg-card h2{font-size:25px}
+}
+
+/* 5) readable secondary text: the themes paint labels, captions and table heads in very light
+      greys (2.5-4:1) that wash out on cheap laptop panels. Keep the theme's own text colour
+      (inherit) at a comfortable opacity instead. Works on light and dark themes and fronts. */
+#app .land .lead,#app .lg-card .sub,#app .lg-foot,#app .land-f .copy,#app .lg-remember,
+#app .fld-i,#app .stg small{color:inherit!important;opacity:.82}
+#app .lg-forgot{color:inherit!important;opacity:.9;font-weight:700;text-decoration:underline}
+#app .kpi:not(:first-child) span,#app .fld>span,#app .filters label,#app .thm-card small,
+#app .empty,#app .loading,#app .grid th{color:inherit!important;opacity:.86}
+
+/* 6) lite mode (Electron wrapper / weak GPU): no giant blur blobs, no SVG shadow filters.
+      Those two blurred circles are what made the login page look washed out on Windows 7. */
+.lite #app .land:before,.lite #app .land:after{display:none!important}
+.lite .art svg{filter:none!important}
+.lite .lg-card{box-shadow:0 10px 26px rgba(0,0,0,.3)!important}
+
+/* 7) the fixed top bar and the shell padding share one height variable */
+.topnav{height:var(--tnh,60px)}
+@media(min-width:901px){#app{padding-top:var(--tnh,60px)}}
