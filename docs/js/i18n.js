@@ -1270,6 +1270,13 @@
     'أكثر من 90': 'Over 90',
     'لا توجد مديونيات': 'No outstanding receivables',
     'اللغة / Language': 'Language',
+    'لا يوجد اتصال بالإنترنت. يمكنك تصفح الشاشات المحفوظة، والحفظ يحتاج اتصالاً.': 'No internet connection. You can browse cached screens; saving needs a connection.',
+    'اختر الموديل': 'Choose a model',
+    'اختر المرحلة': 'Choose a stage',
+    'أمر غير معروف': 'Unknown order',
+    'مرحلة غير صحيحة': 'Invalid stage',
+    'أدخل كمية': 'Enter a quantity',
+    'تم أمر القص': 'Cutting order saved',
   };
   const AR_RE = /[؀-ۿ]/;
   let lang = 'ar';
@@ -1339,9 +1346,8 @@
     });
   }
   function walkAll() {
-    const app = document.getElementById('app');
-    walkText(app || document.body);
-    walkAttrs(app || document.body);
+    walkText(document.body);
+    walkAttrs(document.body);
   }
   function restoreAll() {
     tracked.forEach((tn) => { if (tn.__i18n_ar != null) tn.nodeValue = tn.__i18n_ar; tn.__i18n_ar = undefined; });
