@@ -15,8 +15,11 @@ const MENUS = [
 ];
 const TOOLBAR = [['🏠', 'الرئيسية', 'home'], ['🧾', 'الفواتير', 'sinv_list'], ['📥', 'مخزن القماش', 'store'], ['✂', 'أمر القص', 'orders'], ['🖨', 'الخارج والراجع', 'outs'], ['💰', 'المقبوضات', 'payments'], ['📒', 'حسابات العملاء', 'accounts'], ['🗓', 'الحضور', 'attendance'], ['💵', 'المرتبات', 'payroll']];
 const TITLES = {}; MENUS.forEach(m => m[1].forEach(i => { TITLES[i[2]] = i[1]; })); TITLES.home = 'الرئيسية';
+const PAGE_PERM = { sinv_list: 'invoices', sinv_new: 'invoices', branches: 'invoices', clients: 'masters', models: 'masters', stages: 'masters', employees: 'hr', store: 'fabric', orders: 'fabric', outs: 'fabric', payments: 'accounts', accounts: 'accounts', acctstmt: 'accounts', inv_stock: 'inventory', inv_items: 'inventory', inv_moves: 'inventory', inv_card: 'inventory', inv_count: 'inventory', gl_accounts: 'accounting', gl_journal: 'accounting', gl_ledger: 'accounting', gl_subledger: 'accounting', gl_suppliers: 'accounting', gl_supledger: 'accounting', supplier_statement: 'accounting', gl_trial: 'accounting', gl_statements: 'accounting', cash_flow: 'accounting', bank_rec: 'accounting', assets: 'accounting', accruals: 'accounting', vat: 'accounting', gl_close: 'accounting', assistant: 'tools', daily_close: 'tools', stages_board: 'tools', expenses: 'tools', profit: 'tools', aging: 'tools', attendance: 'hr', payroll: 'hr', receipts: 'fabric', cuts: 'fabric', prod: 'fabric', deliveries: 'fabric', invoices: 'fabric' };
+const canSee = (key) => { const k = PAGE_PERM[key]; if (!k) return true; const ps = (MZ.user && MZ.user.perms) || ['*']; return ps.includes('*') || ps.includes(k); };
 
 async function openPage(key) {
+  if (!canSee(key)) return toast('لا تملك صلاحية الوصول لهذه الشاشة', 'err');
   const f = MZ.pages[key]; if (!f && !String(key).startsWith('sinv_view_') && !String(key).startsWith('sinv_edit_')) return toast('الشاشة غير متاحة', 'err');
   try { history.replaceState(null, '', '#p=' + key); } catch (e) {}
   openWin(key, TITLES[key] || key, async () => { const r = f(); return await r; }, { refresh: true });
@@ -29,7 +32,7 @@ const ROLE_AR = { admin: 'مدير النظام', staff: 'موظف', viewer: 'ع
 function buildTopnav(nm) {
   const PAGE2SEC = {}; MENUS.forEach(([t, items]) => items.forEach(i => { PAGE2SEC[i[2]] = t; }));
   const secOf = (k) => PAGE2SEC[k] || (String(k).startsWith('sinv_view_') || String(k).startsWith('sinv_edit_') ? PAGE2SEC.sinv_list : null);
-  const adminOk = (i) => i[3] !== 'admin' || MZ.user.role === 'admin';
+  const adminOk = (i) => (i[3] !== 'admin' || MZ.user.role === 'admin') && canSee(i[2]);
   const SHORT = { 'المحاسبة (الدورة المحاسبية)': 'المحاسبة' };
   const MORE = 'المزيد';
   let openSec = null;
@@ -100,7 +103,7 @@ function buildTopnav(nm) {
 
 function shell() {
   const app = $('#app'); app.innerHTML = '';
-  const adminOk = (i) => i[3] !== 'admin' || MZ.user.role === 'admin';
+  const adminOk = (i) => (i[3] !== 'admin' || MZ.user.role === 'admin') && canSee(i[2]);
   const nav = [h('div', { class: 'navg' }, h('div', { class: 'nv', 'data-k': 'home', onclick: () => openPage('home') }, h('i', null, '🏠'), 'الرئيسية'))];
   MENUS.forEach(([t, items]) => {
     const vis = items.filter(adminOk); if (!vis.length) return;
