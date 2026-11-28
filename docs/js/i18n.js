@@ -1277,6 +1277,14 @@
     'مرحلة غير صحيحة': 'Invalid stage',
     'أدخل كمية': 'Enter a quantity',
     'تم أمر القص': 'Cutting order saved',
+    'تسليم جديد للعميل': 'New delivery to customer',
+    'فاتورة تصنيع جديدة': 'New manufacturing invoice',
+    'تغيير كلمة مروري': 'Change my password',
+    'حساب جديد': 'New account',
+    'سداد مورد': 'Supplier payment',
+    'صنف جديد': 'New item',
+    'مخزن جديد': 'New warehouse',
+    'مورد جديد': 'New supplier',
   };
   const AR_RE = /[؀-ۿ]/;
   let lang = 'ar';
@@ -1290,7 +1298,15 @@
     ['مساء النور يا ', 'Good evening, '],
     ['الرئيسية - ', 'Home - '],
     ['تعديل: ', 'Edit: '],
-    ['جديد: ', 'New: ']
+    ['جديد: ', 'New: '],
+    ['أمر القص ', 'Cutting order '],
+    ['استلام ', 'Receipt '],
+    ['تحويل للقص: ', 'Transfer to cutting: '],
+    ['تسليم ', 'Delivery '],
+    ['فاتورة ', 'Invoice '],
+    ['تصدير: ', 'Export: '],
+    ['مدخلات مرتب: ', 'Payroll inputs: '],
+    ['نتائج البحث عن: ', 'Search results for: ']
   ];
   let PREKEYS = null;
   function trText(s) {
@@ -1304,13 +1320,13 @@
     if (mcode) { const en3 = DICT[mcode[2].trim()]; if (en3) return s.replace(t, mcode[1] + ' ' + en3); }
     const mem = t.match(/^([^\p{L}\p{N}]+\s*)(.+)$/u);
     if (mem) { const en4 = DICT[mem[2].trim()]; if (en4) return s.replace(t, mem[1] + en4); }
-    for (const [ap, ep] of PREFIX) if (t.startsWith(ap)) return s.replace(t, ep + t.slice(ap.length));
+    for (const [ap, ep] of PREFIX) if (t.startsWith(ap)) { const rest = t.slice(ap.length); const r2 = DICT[rest] || trText(rest); return s.replace(t, ep + (r2 || rest)); }
     if (/[\d)]$/.test(t) && t.length > 6) {
       if (PREKEYS === null) PREKEYS = Object.keys(DICT).filter(k => k.length >= 6).sort((a, b) => b.length - a.length);
       for (const k of PREKEYS) {
         if (t.length > k.length && t.startsWith(k)) {
           const rest = t.slice(k.length);
-          if (/^[\s\d().:%\-\/|]+$/.test(rest)) return s.replace(t, DICT[k] + rest);
+          if (/^[\s\d().:%*\-\/|]+$/.test(rest)) return s.replace(t, DICT[k] + rest);
         }
       }
     }
