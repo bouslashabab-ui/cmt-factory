@@ -172,7 +172,7 @@ P.payroll = async () => {
     root.append(pageHead('المرتبات', btn('🖨 طباعة', () => printEl('كشف المرتبات', doc)), btn('🧾 كل القسائم', () => printPayslips(rows, ym)), btn('⬇ تصدير Excel (CSV)', () => download('مرتبات ' + ym + '.csv', csvOf(cols, rows)))),
       h('div', { class: 'filters' }, ymBar(ym, v => { ym = v; render(); })),
       h('div', { class: 'kpis' }, kpi('إجمالي المستحق', fmt(s('gross'))), kpi('إجمالي الاستقطاعات', fmt(s('total_deductions'))), kpi('صافي المرتبات', fmt(s('net')))),
-      note('الأجر اليومي = الراتب ÷ ' + (d.params || {}).days_in_month + ' | قيمة الساعة = اليومي ÷ ' + (d.params || {}).hours_per_day + ' | الإضافي = ساعات × قيمة الساعة × ' + (d.params || {}).ot_mult + ' | الجمعة = اليومي × عدد الجمع × ' + (d.params || {}).friday_mult + ' | الصافي = أيام الحضور × اليومي + الجمع + الإضافي - (السلف + الخصم). الغياب لا يُخصم مرة ثانية لأن الراتب محسوب على أيام الحضور فقط.'),
+      d.params ? note('الأجر اليومي = الراتب ÷ ' + d.params.days_in_month + ' | ', 'قيمة الساعة = اليومي ÷ ' + d.params.hours_per_day + ' | ', 'الإضافي = ساعات × قيمة الساعة × ' + d.params.ot_mult + ' | ', 'الجمعة = اليومي × عدد الجمع × ' + d.params.friday_mult + ' | ', 'الصافي = أيام الحضور × اليومي + الجمع + الإضافي - (السلف + الخصم). الغياب لا يُخصم مرة ثانية لأن الراتب محسوب على أيام الحضور فقط.') : null,
       table(full, rows, { empty: 'أضف الموظفين أولاً', foot: [null, 'الإجمالي', null, fmt(s('salary')), null, null, null, null, fmt(s('friday_value')), fmt(s('ot_value')), fmt(s('gross')), fmt(s('advances')), null, fmt(s('deduction')), fmt(s('total_deductions')), fmt(s('net')), null] }));
   };
   await render(); return root;
