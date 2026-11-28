@@ -35,7 +35,7 @@ download = function (name, text) { const m = parseCsv(text); if (!m.length) retu
 /* ---------- المساعد الذكي ---------- */
 async function assistCount() { try { const a = await GET('/assistant'); MZ.assist = a; const n = a.counts.err + a.counts.warn; document.querySelectorAll('.nv[data-k=assistant] .bdg').forEach(e => e.remove()); const nv = document.querySelector('.nv[data-k=assistant]'); if (nv && n) nv.append(h('span', { class: 'bdg' }, n)); return a; } catch (e) { return null; } }
 P.assistant = async () => {
-  const a = await assistCount(); if (!a) throw new Error('تعذر تحميل المساعد');
+  const a = await assistCount(); if (!a) return h('div', null, pageHead('🤖 المساعد الذكي'), h('div', { class: 'panel' }, h('div', { class: 'pb' }, 'تعذر تحميل المساعد')));
   const goto = { 'القص': 'orders', 'التسليم': 'orders', 'التكلفة': 'orders', 'المخزن': 'store', 'الخارج': 'outs', 'الحسابات': 'aging', 'الإنتاج': 'stages', 'الرواتب': 'payroll', 'الحضور': 'attendance', 'تكرار': null };
   const cols = [{ t: 'النوع', f: r => lvTag(r.level) }, { t: 'القسم', k: 'area' }, { t: 'التنبيه', k: 'msg' }, { t: '', f: r => goto[r.area] ? btn('فتح الشاشة', () => openPage(goto[r.area]), 'sm') : '' }];
   return h('div', null, pageHead('🤖 المساعد الذكي', btn('🔄 فحص الآن', async () => { await openPage('assistant'); }), btn('⬇ تصدير', () => exportChooser())),
