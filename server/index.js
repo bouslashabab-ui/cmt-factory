@@ -487,7 +487,7 @@ async function reports(kind, q) {
 async function route(req, url, body) {
   const parts = url.pathname.replace(/^\/api\/?/, '').split('/').filter(Boolean);
   const q = Object.fromEntries(url.searchParams); const m = req.method; const head = parts[0];
-  if (head === 'health') return { ok: true, t: Date.now(), v: 60 };
+  if (head === 'health') return { ok: true, t: Date.now(), v: 61 };
   if (head === 'status') { const [r] = await C.db().query('SELECT COUNT(*) c FROM users'); return { setup_needed: r[0].c === 0 }; }
   if (head === 'setup' && m === 'POST') { await setup(body); return { ok: true }; }
   if (head === 'login' && m === 'POST') return login(body, req.socket.remoteAddress || 'ip');
@@ -575,7 +575,7 @@ const server = http.createServer(async (req, res) => {
   const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', ...CORS }); res.end(JSON.stringify(obj)); };
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
   const url = new URL(req.url, 'http://x');
-  if (url.pathname === '/' || url.pathname === '/api/health') return send(200, { ok: true, ready, v: 60, error: startErr ? String(startErr.message || startErr) : undefined });
+  if (url.pathname === '/' || url.pathname === '/api/health') return send(200, { ok: true, ready, v: 61, error: startErr ? String(startErr.message || startErr) : undefined });
   if (!ready) return send(503, { error: startErr ? 'تعذر الاتصال بقاعدة البيانات' : 'الخادم يبدأ التشغيل، حاول بعد لحظات' });
   let raw = '';
   req.on('data', (c) => { raw += c; if (raw.length > 2e6) req.destroy(); });
