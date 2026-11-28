@@ -176,8 +176,7 @@ function shell() {
   new MutationObserver(sync).observe($('#tabs'), { subtree: true, childList: true, attributes: true });
   openWin('home', 'الرئيسية', () => MZ.pages.home());
   sync(); setTimeout(() => { assistCount(); NOTIF.init(); }, 1500);
-  const hm = (location.hash || '').match(/^#p=([A-Za-z0-9_]+)/);
-  if (hm && hm[1] !== 'home') setTimeout(() => openPage(hm[1]), 400);
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
   if (!window.__hashBound) { window.__hashBound = true; window.addEventListener('hashchange', () => { const mm = (location.hash || '').match(/^#p=([A-Za-z0-9_]+)/); if (mm) openPage(mm[1]); }); }
 }
 
