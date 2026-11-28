@@ -90,3 +90,5 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(
 .sclock .ck-bar{background:linear-gradient(90deg,var(--lime2),#d9c8ef)}
 .today.sclock .ck-t{color:#f7e6b0}.today.sclock .ck-d{color:#c3abdd}
 .seg button.on{color:var(--teal)}
+/* topnav active contrast on the velvet strip */
+.tn-sec.on{background:rgba(201,162,39,.28);color:#f7e6b0}
