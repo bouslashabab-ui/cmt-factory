@@ -20,7 +20,7 @@ const SIMPLE_USEDCOL = { models: { cuts: 'model_id' } };
 
 const DEFAULT_STAGES = [['خياطة', 1], ['كي', 2], ['فحص وتشطيب', 3], ['تعبئة', 4]];
 
-const THEMES = ['atelier', 'classic', 'oasis'];
+const THEMES = ['atelier', 'classic', 'oasis', 'midnight', 'royal', 'glass', 'sunset', 'journal', 'lagoon'];
 const ALL_SCREENS = ['masters', 'hr', 'invoices', 'fabric', 'accounts', 'inventory', 'accounting', 'tools'];
 const screenPerms = (u) => {
   if (u.role === 'admin') return ['*'];
