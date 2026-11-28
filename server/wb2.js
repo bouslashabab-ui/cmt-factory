@@ -191,7 +191,7 @@ async function api(head, req, u, id, body, q) {
   if (head === 'expenses') return expensesApi(req, u, id, body);
   if (head === 'profit') return profit();
   if (head === 'aging') return aging();
-  if (head === 'stages') return stagesApi(req, u, id, body);
+  if (head === 'stages-board') return stagesApi(req, u, id, body);
   if (head === 'assistant') return assistant();
   if (head === 'check') return check(body);
   return undefined;
