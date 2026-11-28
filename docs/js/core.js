@@ -42,13 +42,19 @@ const THEMES = [
   { k: 'atelier', name: 'إنديجو أتيليه', desc: 'الهوية الافتراضية: نيلي ليلي وألباستر وخيط وردي', css: 'css/theme2.css', sw: ['#3547e0', '#f2f4fb', '#f0457a'] },
   { k: 'classic', name: 'كلاسيك المصنع', desc: 'الشريط الداكن الأصلي بلمسات لايم ونيلي', css: '', sw: ['#0f1437', '#9aa8ff', '#a9dc45'] },
   { k: 'oasis', name: 'الواحة الزمردية', desc: 'زمردي عميق ورملي دافئ بلمسات ذهبية', css: 'css/oasis.css', sw: ['#0e5f4b', '#faf6ec', '#d9a441'] },
+  { k: 'midnight', name: 'ليل فاخر', desc: 'وضع ليلي كامل: كحلي داكن وخيوط ذهبية', css: 'css/midnight.css', sw: ['#0b1020', '#d9b45c', '#ffe9bd'] },
+  { k: 'royal', name: 'البنفسج الملكي', desc: 'بنفسجي عميق وذهبي ملكي بخط أميري كلاسيكي', css: 'css/royal.css', sw: ['#5b2a86', '#f6f2fb', '#c9a227'] },
+  { k: 'glass', name: 'زجاج الصباح', desc: 'أبيض زجاجي شفاف بلمسات سماوية مشرقة', css: 'css/glass.css', sw: ['#2273b3', '#e9f3fa', '#2f8fd6'] },
+  { k: 'sunset', name: 'غروب دافئ', desc: 'مرجاني وعنبري دافئ على كريمي مسائي', css: 'css/sunset.css', sw: ['#d2543a', '#fdf3ea', '#e8a33d'] },
+  { k: 'journal', name: 'دفتر تحريري', desc: 'حبر على ورق بأسلوب الصحف وخيط أحمر', css: 'css/journal.css', sw: ['#1c1a17', '#f4f1e8', '#b3392c'] },
+  { k: 'lagoon', name: 'لاجون المحيط', desc: 'أزرق محيطي عميق وأكوا زجاجي منعش', css: 'css/lagoon.css', sw: ['#0e6e8c', '#eaf5f6', '#14b8c4'] },
 ];
 function applyTheme(k) {
   const t = THEMES.find(x => x.k === k) || THEMES[0];
   MZ.theme = t.k;
   try { localStorage.setItem('cmt_theme', t.k); } catch (e) { }
   const link = document.getElementById('themeLink');
-  if (link) link.href = t.css ? t.css + '?v=31' : '';
+  if (link) link.href = t.css ? t.css + '?v=62' : '';
 }
 applyTheme((() => { try { return localStorage.getItem('cmt_theme'); } catch (e) { return null; } })() || 'atelier');
 
