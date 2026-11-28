@@ -31,14 +31,40 @@ async function api(head, req, u, id, body, q, parts) {
   const write = () => { if (u.role === 'viewer') throw new HttpError(403, 'صلاحيتك للعرض فقط'); };
   if (sub === 'items') {
     if (m === 'GET') return Q('SELECT * FROM inv_items ORDER BY code');
-    write(); const code = String(body.code || '').trim(), name = String(body.name || '').trim(); if (!code || !name) throw bad('الكود والاسم مطلوبان');
+    write();
+    const iid = +parts[2] || 0;
+    if (m === 'PUT' && iid) {
+      const name = String(body.name || '').trim(); if (!name) throw bad('الاسم مطلوب');
+      const mn = Number(body.min_qty || 0); if (!(mn >= 0)) throw bad('الحد الأدنى غير صحيح');
+      const sp = Number(body.sell_price || 0); if (!(sp >= 0)) throw bad('سعر البيع غير صحيح');
+      const act = body.active === 0 || body.active === '0' || body.active === false ? 0 : 1;
+      await C.db().query('UPDATE inv_items SET name=?, unit=?, min_qty=?, sell_price=?, active=? WHERE id=?', [name.slice(0, 120), String(body.unit || 'قطعة').slice(0, 20), mn, sp, act, iid]);
+      await C.audit(u, 'update', 'inv_item', iid, name); return { ok: true };
+    }
+    if (m === 'DELETE' && iid) {
+      const [a] = await Q('SELECT COUNT(*) c FROM inv_moves WHERE item_id=?', [iid]);
+      const [b] = await Q('SELECT COUNT(*) c FROM sales_invoice_lines WHERE item_id=?', [iid]);
+      if (a.c || b.c) throw bad('لا يمكن حذف الصنف: عليه حركات مخزون أو فواتير. عدّله إلى غير نشط بدل الحذف');
+      await C.db().query('DELETE FROM inv_items WHERE id=?', [iid]); await C.audit(u, 'delete', 'inv_item', iid); return { ok: true };
+    }
+    const code = String(body.code || '').trim(), name = String(body.name || '').trim(); if (!code || !name) throw bad('الكود والاسم مطلوبان');
     const mn = Number(body.min_qty || 0); if (!(mn >= 0)) throw bad('الحد الأدنى غير صحيح');
     const sp = Number(body.sell_price || 0); if (!(sp >= 0)) throw bad('سعر البيع غير صحيح');
-    try { await C.db().query('INSERT INTO inv_items(code,name,unit,min_qty,sell_price) VALUES(?,?,?,?,?)', [code.slice(0, 30), name.slice(0, 120), String(body.unit || 'قطعة').slice(0, 20), mn, sp]); } catch (e) { throw bad('كود الصنف مكرر'); } return { ok: true };
+    try { await C.db().query('INSERT INTO inv_items(code,name,unit,min_qty,sell_price) VALUES(?,?,?,?,?)', [code.slice(0, 30), name.slice(0, 120), String(body.unit || 'قطعة').slice(0, 20), mn, sp]); } catch (e) { throw bad('كود الصنف مكرر'); }
+    await C.audit(u, 'create', 'inv_item', 0, code); return { ok: true };
   }
   if (sub === 'wh') {
     if (m === 'GET') return Q('SELECT * FROM inv_wh ORDER BY id');
-    write(); const n = String(body.name || '').trim(); if (!n) throw bad('اسم المخزن مطلوب'); try { await C.db().query('INSERT INTO inv_wh(name) VALUES(?)', [n.slice(0, 80)]); } catch (e) { throw bad('الاسم مكرر'); } return { ok: true };
+    write();
+    const wid = +parts[2] || 0;
+    if (m === 'DELETE' && wid) {
+      const [a] = await Q('SELECT COUNT(*) c FROM inv_moves WHERE wh_id=?', [wid]);
+      const [b] = await Q('SELECT COUNT(*) c FROM sales_invoices WHERE wh_id=?', [wid]);
+      if (a.c || b.c) throw bad('لا يمكن حذف المخزن: عليه حركات أو فواتير مسجلة');
+      await C.db().query('DELETE FROM inv_wh WHERE id=?', [wid]); await C.audit(u, 'delete', 'inv_wh', wid); return { ok: true };
+    }
+    const n = String(body.name || '').trim(); if (!n) throw bad('اسم المخزن مطلوب'); try { await C.db().query('INSERT INTO inv_wh(name) VALUES(?)', [n.slice(0, 80)]); } catch (e) { throw bad('الاسم مكرر'); }
+    await C.audit(u, 'create', 'inv_wh', 0, n); return { ok: true };
   }
   if (sub === 'stock') {
     const { st, wh } = await compute(); const items = await Q('SELECT * FROM inv_items ORDER BY code'); const whs = await Q('SELECT * FROM inv_wh ORDER BY id');
