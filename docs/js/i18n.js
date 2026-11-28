@@ -1260,8 +1260,16 @@
     'تُحسب بتوزيع المقبوضات على أقدم أوامر القص أولاً، ثم يُوزَّع المتبقي حسب عمر كل أمر من تاريخه.': 'Computed by applying receipts to the oldest cutting orders first, then distributing the remainder by each order\'s age from its date.',
     '0-30 يوم': '0-30 days',
     'أقدم دين (يوم)': 'Oldest debt (days)',
-    'رصيد دائن': 'Credit balance'
+    'رصيد دائن': 'Credit balance',
 
+    'قيمة الساعة = اليومي ÷': 'Hour rate = daily ÷',
+    'الإضافي = ساعات × قيمة الساعة ×': 'Overtime = hours × hour rate ×',
+    'الجمعة = اليومي × عدد الجمع ×': 'Friday = daily × Fridays worked ×',
+    'الصافي = أيام الحضور × اليومي + الجمع + الإضافي - (السلف + الخصم). الغياب لا يُخصم مرة ثانية لأن الراتب محسوب على أيام الحضور فقط.': 'Net = days present × daily + Friday pay + overtime - (advances + deductions). Absence is not deducted twice because salary is calculated on present days only.',
+    'تعذر تحميل المساعد': 'Could not load the assistant',
+    'أكثر من 90': 'Over 90',
+    'لا توجد مديونيات': 'No outstanding receivables',
+    'اللغة / Language': 'Language',
   };
   const AR_RE = /[؀-ۿ]/;
   let lang = 'ar';
