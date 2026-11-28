@@ -318,7 +318,52 @@ P.settings = async () => {
   const langSel = h('select', { class: 'lang-sel', style: { padding: '9px 14px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px', minWidth: '220px' }, onchange: () => I18N_SET(langSel.value) }, h('option', { value: 'ar' }, 'العربية'), h('option', { value: 'en' }, 'English'));
   langSel.value = window.I18N ? I18N.lang : 'ar';
   const langPanel = h('div', { class: 'panel', style: { marginTop: '14px' } }, h('div', { class: 'ph' }, '🌐 اللغة / Language'), h('div', { class: 'pb' }, h('p', { style: { color: '#777', fontSize: '13px', margin: '0 0 10px' } }, 'اختر لغة الواجهة. تُحفظ وتطبق فورًا على كل الشاشات.'), langSel));
-  return h('div', null, pageHead('الإعدادات'), h('div', { class: 'panel' }, h('div', { class: 'pb' }, f.el, btn('💾 حفظ', async () => { await PUT('/settings', f.get()); Object.assign(MZ.settings, f.get()); toast('تم الحفظ'); }, 'pri'), ' ', btn('🔑 تغيير كلمة مروري', pw))), ltPanel, langPanel);
+  /* ---- interface font panel ---- */
+  const saveUi = (patch) => { const p = Object.assign(uiPrefs(), patch); try { localStorage.setItem('cmt_ui', JSON.stringify(p)); } catch (e) {} applyUi(p); };
+  const ui0 = uiPrefs();
+  const fontSel = h('select', { class: 'inp', style: { minWidth: '220px' }, onchange: () => { saveUi({ font: fontSel.value }); toast('تم تغيير الخط'); } }, UI_FONTS.map(([v, t]) => h('option', { value: v }, t)));
+  fontSel.value = ui0.font || '';
+  const mkRange = (label, key, min, max, def) => {
+    const val = h('b', { style: { minWidth: '64px', textAlign: 'left' } }, '');
+    const inp = h('input', { type: 'range', min, max, value: ui0[key] || def, style: { flex: '1' } });
+    const upd = () => { val.textContent = inp.value + ' px'; };
+    inp.addEventListener('input', () => { upd(); saveUi({ [key]: +inp.value }); }); upd();
+    return h('label', { style: { display: 'flex', alignItems: 'center', gap: '10px', margin: '10px 0' } }, h('span', { style: { minWidth: '190px' } }, label), inp, val);
+  };
+  const colInp = h('input', { type: 'color', value: ui0.tcolor || '#7a82a6', style: { width: '52px', height: '34px', border: '1px solid #ccc', borderRadius: '8px', cursor: 'pointer' } });
+  colInp.addEventListener('input', () => saveUi({ tcolor: colInp.value }));
+  const liteRow = (() => {
+    const sel = h('select', { class: 'inp', style: { minWidth: '220px' }, onchange: () => { try { if (sel.value) localStorage.setItem('cmt_lite', sel.value); else localStorage.removeItem('cmt_lite'); } catch (e) {} toast('سيُطبَّق وضع الأداء بعد إعادة تحميل الصفحة'); } }, [['', 'تلقائي (حسب الجهاز)'], ['on', 'مفعّل دائمًا'], ['off', 'معطّل']].map(([v, t]) => h('option', { value: v }, t)));
+    try { sel.value = localStorage.getItem('cmt_lite') || ''; } catch (e) {}
+    return h('label', { style: { display: 'flex', alignItems: 'center', gap: '10px', margin: '10px 0' } }, h('span', { style: { minWidth: '190px' } }, 'وضع الأداء (للأجهزة القديمة)'), sel);
+  })();
+  const fontPanel = h('div', { class: 'panel', style: { marginTop: '14px' } }, h('div', { class: 'ph' }, '🔤 خط الواجهة'), h('div', { class: 'pb' },
+    h('p', { style: { color: '#777', fontSize: '13px', margin: '0 0 10px' } }, 'تُحفظ هذه الخيارات على هذا الجهاز وتطبق فورًا على كل الشاشات.'),
+    h('label', { style: { display: 'flex', alignItems: 'center', gap: '10px', margin: '10px 0' } }, h('span', { style: { minWidth: '190px' } }, 'نوع الخط'), fontSel),
+    mkRange('حجم خط المحتوى', 'fsize', 12, 18, 14),
+    mkRange('حجم خط الألسنة العلوية', 'tsize', 13, 22, 15),
+    h('label', { style: { display: 'flex', alignItems: 'center', gap: '10px', margin: '10px 0' } }, h('span', { style: { minWidth: '190px' } }, 'لون خط الألسنة العلوية'), colInp, btn('اللون الافتراضي', () => { colInp.value = '#7a82a6'; saveUi({ tcolor: '' }); }, 'sm')),
+    liteRow,
+    btn('↺ إعادة ضبط كل خيارات الخط', () => { try { localStorage.removeItem('cmt_ui'); } catch (e) {} applyUi({}); fontSel.value = ''; toast('تمت إعادة الضبط'); }, 'sm')));
+  /* ---- factory reset (danger zone, admin only) ---- */
+  let resetPanel = null;
+  if (MZ.user && MZ.user.role === 'admin') {
+    const rstIn = h('input', { class: 'inp', placeholder: 'RESET', dir: 'ltr', style: { maxWidth: '180px', textAlign: 'center', letterSpacing: '2px' } });
+    const rstBtn = btn('🗑 مسح كل البيانات نهائيًا', async () => {
+      if (rstIn.value.trim() !== 'RESET') return toast('اكتب RESET بالحروف اللاتينية في الحقل أولاً', 'err');
+      const k = await confirmDialog('⚠ تأكيد أخير', 'سيتم مسح كل البيانات والسجلات والأرقام نهائيًا (العملاء، الاستلامات، أوامر القص، الإنتاج، الفواتير، المقبوضات، القيود، العمال، الحضور، المستخدمون الاختباريون). يبقى فقط حساب المدير والإعدادات ودليل الحسابات. لا يمكن التراجع بعد هذه الخطوة.', [{ k: 'yes', t: 'نعم، امسح كل شيء', kind: 'dan' }, { k: 'no', t: 'تراجع', kind: 'pri' }]);
+      if (k !== 'yes') return;
+      await POST('/admin-reset', { confirm: 'RESET' });
+      toast('تم مسح كل البيانات. سيتم تسجيل الخروج الآن.');
+      setTimeout(logout, 1200);
+    }, 'danger');
+    resetPanel = h('div', { class: 'panel', style: { marginTop: '14px', borderColor: '#e8b4b4' } }, h('div', { class: 'ph', style: { color: '#c4452f' } }, '⚠ منطقة الخطر: تصفير النظام بالكامل'), h('div', { class: 'pb' },
+      h('p', { style: { color: '#777', fontSize: '13px', margin: '0 0 10px' } } , 'لتسليم النظام لعميل جديد: نزّل نسخة احتياطية أولاً، ثم اكتب RESET واضغط المسح. يبقى حساب المدير والإعدادات ودليل الحسابات والسمات.'),
+      h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' } },
+        btn('💾 1) تنزيل نسخة احتياطية كاملة', () => backupAll(), 'pri'),
+        h('span', null, '2) اكتب'), rstIn, rstBtn)));
+  }
+  return h('div', null, pageHead('الإعدادات'), h('div', { class: 'panel' }, h('div', { class: 'pb' }, f.el, btn('💾 حفظ', async () => { await PUT('/settings', f.get()); Object.assign(MZ.settings, f.get()); toast('تم الحفظ'); }, 'pri'), ' ', btn('🔑 تغيير كلمة مروري', pw))), ltPanel, langPanel, fontPanel, resetPanel);
 };
 P.users = async () => {
   const root = h('div');
