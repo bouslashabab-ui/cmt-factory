@@ -830,3 +830,23 @@ html[dir=ltr] .xgt{direction:ltr}
 .lite .lg-card{box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .lite .modal-back{background:rgba(15,30,29,.66)}
 .lite .panel,.lite .kpi,.lite .tbl-wrap{box-shadow:0 1px 3px rgba(15,20,55,.10)}
+
+/* ---------- inner layouts ---------- */
+@media(min-width:901px){
+body.lay-side #app{padding-top:0;flex-direction:row}
+body.lay-side .topnav{display:none}
+body.lay-side .side{display:flex;position:static;right:auto;box-shadow:2px 0 18px rgba(15,20,55,.18)}
+body.lay-compact #app{padding-top:44px}
+body.lay-compact .topnav{height:44px;padding:0 10px;gap:6px}
+body.lay-compact .topnav .btn,body.lay-compact .topnav button{padding:4px 9px;font-size:12.5px}
+body.lay-compact .topbar{padding:8px 14px 0}
+body.lay-compact .topbar .tab{padding:5px 12px;font-size:13px}
+body.lay-compact .win-content{padding:10px 14px}
+body.lay-compact .panel{margin-bottom:10px;border-radius:12px}
+body.lay-compact .panel .pb,body.lay-compact .pb{padding:10px 14px}
+}
+/* layout picker previews (reuses .ltp card chrome) */
+.layp-p{height:72px;position:relative}
+.layp-p.lay-classic{background:linear-gradient(180deg,#0f1437 0 20%,#eef1fa 20% 100%)}
+.layp-p.lay-side{background:linear-gradient(270deg,#0f1437 0 30%,#eef1fa 30% 100%)}
+.layp-p.lay-compact{background:linear-gradient(180deg,#0f1437 0 13%,#d8deef 13% 100%)}
