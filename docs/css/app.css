@@ -1,7 +1,7 @@
 :root{--ink:#0f1437;--ink2:#22403e;--canvas:#f2f4fb;--card:#fff;--lime:#9aa8ff;--lime2:#a9dc45;--teal:#3547e0;--mut:#7a82a6;--bd:#f2f4fb;--soft:#f2f4fb;--coral:#f0457a;--red:#c4452f;--grn:#2f7d4f;--thread:#f0457a;--r:10px;--sh:0 4px 20px rgba(23,43,42,.05)}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
-body{font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic",Arial,sans-serif;color:var(--ink);background:var(--canvas);font-size:14px;direction:rtl;font-variant-numeric:tabular-nums}
+body{font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic",Arial,sans-serif;color:var(--ink);background:var(--canvas);font-size:var(--basefs,14px);direction:rtl;font-variant-numeric:tabular-nums}
 button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 a{color:var(--teal)}
 #app{display:flex;height:100vh;overflow:hidden}
@@ -30,9 +30,9 @@ a{color:var(--teal)}
 .topbar{display:flex;align-items:flex-end;gap:10px;padding:14px 22px 0;background:var(--canvas);border-bottom:1px solid var(--bd)}
 .burger{display:none;background:var(--ink);color:#fff;border:0;border-radius:8px;padding:6px 12px;margin-bottom:8px;cursor:pointer}
 .tabs{display:flex;gap:4px;overflow-x:auto;flex:1;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
-.tab{display:flex;gap:8px;align-items:center;background:transparent;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;padding:8px 16px;cursor:pointer;white-space:nowrap;font-size:13px;color:#7a82a6}
+.tab{display:flex;gap:8px;align-items:center;background:transparent;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;padding:8px 16px;cursor:pointer;white-space:nowrap;font-size:var(--tabfs,15px);color:var(--tabink,#7a82a6)}
 .tab:hover{background:#e3e6f5}
-.tab.on{background:#fff;border-color:var(--bd);color:var(--ink);font-weight:700;box-shadow:inset 0 3px 0 var(--lime2)}
+.tab.on{background:#fff;border-color:var(--bd);color:var(--tabink,var(--ink));font-weight:700;box-shadow:inset 0 3px 0 var(--lime2)}
 .tab b{font-weight:400;opacity:.5;padding:0 4px;border-radius:4px}.tab b:hover{background:var(--coral);color:#fff;opacity:1}
 .today{color:var(--mut);font-size:12px;padding:0 4px 10px;white-space:nowrap}
 #desk{flex:1;overflow:hidden;position:relative;background:#fff;background-image:radial-gradient(#e3e6f5 1px,transparent 1px);background-size:20px 20px}
@@ -40,6 +40,9 @@ a{color:var(--teal)}
 .win-content.on{display:block}
 /* pages */
 .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap}
+.backbtn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--bd);color:var(--ink);border-radius:10px;padding:7px 14px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(15,20,55,.08);font-family:inherit}
+.backbtn:hover{background:var(--lime2);border-color:var(--lime2)}
+.backbtn:active{transform:translateY(1px)}
 .page-head h2{margin:0;font-size:26px;font-weight:800;letter-spacing:-.3px;position:relative;padding-right:0}
 .page-head h2:after{content:"";display:block;width:46px;height:5px;border-radius:3px;background:var(--lime2);margin-top:6px}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -806,3 +809,25 @@ html[dir=ltr] .xgt{direction:ltr}
 
 /* on-screen print-doc logo sizing (print.css only loads in the print window) */
 .plogo svg{width:46px;height:46px}
+
+/* ===== short desktop screens (1366x768 / 1024x768 laptops): login fits fully ===== */
+@media(min-width:901px) and (max-height:860px){
+  #app{display:block;height:auto;min-height:100vh;overflow:auto}
+  .land{position:static;inset:auto;min-height:100vh;overflow:visible}
+  .land-l{padding:20px 40px 8px;justify-content:flex-start}
+  .land h1{font-size:clamp(28px,4vw,48px);margin:10px 0 8px;letter-spacing:-1px}
+  .land .lead{font-size:14.5px;line-height:1.6;margin:0 0 12px}
+  .land-r{overflow:visible;align-items:flex-start;padding:16px}
+  #app .land .lg-card{zoom:1.1;transform:none}
+  .land-f{padding:8px 24px}
+  .login-clock{display:none!important}
+}
+@media(min-width:901px) and (max-height:790px){ #app .land .lg-card{zoom:1} .land-l{padding-top:12px} .land h1{font-size:clamp(24px,3.4vw,40px)} }
+
+/* ===== lite mode (Electron wrapper / old hardware): crisp, no blur, no looping animation ===== */
+.lite *,.lite *:before,.lite *:after{animation-duration:.01s!important;animation-iteration-count:1!important;transition-duration:.01s!important}
+.lite .topbar,.lite .login-clock,.lite .modal-back,.lite .today.sclock{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.lite .land-r:after{display:none}
+.lite .lg-card{box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.lite .modal-back{background:rgba(15,30,29,.66)}
+.lite .panel,.lite .kpi,.lite .tbl-wrap{box-shadow:0 1px 3px rgba(15,20,55,.10)}
