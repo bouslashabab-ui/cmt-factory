@@ -385,7 +385,6 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .topnav .sclock .ck-w{font-size:9.5px}
 .topnav .sclock .ck-bar{display:none}
 @media(max-width:1450px){.tn-nm{display:none}}
-@media(max-width:1150px){.topnav .today{display:none}}
 /* big interactive clock hero on the dashboard */
 .clock-hero{display:flex;align-items:center;gap:22px;background:linear-gradient(135deg,var(--ink) 0%,#232c66 60%,#2d3a8f 100%);border-radius:20px;padding:18px 26px;margin-bottom:14px;color:#fff;box-shadow:0 12px 34px rgba(15,20,55,.28);position:relative;overflow:hidden}
 .clock-hero:before{content:'';position:absolute;inset:-40%;background:radial-gradient(circle at 85% 20%,rgba(200,255,90,.14),transparent 55%);pointer-events:none}
@@ -403,9 +402,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .ch-g{font-size:19px;font-weight:900}
 .ch-h{font-size:12.5px;color:#aeb6dd}
 @media(max-width:900px){.clock-hero{flex-direction:column;align-items:flex-start;gap:12px;padding:14px 18px}.bigclock .ck-t{font-size:26px}}
-/* keep all 9 sections visible on narrower laptops: logo-only brand, drop bar clock */
+/* keep all 9 sections visible on narrower laptops: logo-only brand (clock stays visible) */
 @media(min-width:901px) and (max-width:1500px){.tn-brand h1{display:none}.topnav{gap:6px;padding:0 10px}}
-@media(min-width:901px) and (max-width:1400px){.topnav .today{display:none}}
 
 /* ================= login designs: shared structure + switcher ================= */
 #app .motto{display:flex;align-items:center;gap:12px;margin:0 0 26px;min-height:42px}
@@ -826,7 +824,8 @@ html[dir=ltr] .xgt{direction:ltr}
   .land-r{overflow:visible;align-items:flex-start;padding:16px}
   #app .land .lg-card{zoom:1.1}
   .land-f{padding:8px 24px}
-  .login-clock{display:none!important}
+  .login-clock{display:block;top:10px;left:14px;padding:6px 14px 8px;font-size:12px}
+  .login-clock .ck-t{font-size:18px}.login-clock .ck-d{font-size:11px}
 }
 @media(min-width:901px) and (max-height:790px){ #app .land .lg-card{zoom:1} .land-l{padding-top:12px} .land h1{font-size:clamp(24px,3.4vw,40px)} }
 
