@@ -51,6 +51,36 @@ function applyTheme(k) {
   if (link) link.href = t.css ? t.css + '?v=31' : '';
 }
 applyTheme((() => { try { return localStorage.getItem('cmt_theme'); } catch (e) { return null; } })() || 'atelier');
+
+/* ---------- interface font prefs (per device) ---------- */
+const UI_FONTS = [
+  ['', 'الافتراضي (خط النظام)'],
+  ['Cairo', 'القاهرة (Cairo)'],
+  ['Tajawal', 'تجوال (Tajawal)'],
+  ['Almarai', 'المراعي (Almarai)'],
+  ['IBM Plex Sans Arabic', 'IBM بلكس عربي'],
+  ['Alexandria', 'إسكندرية (Alexandria)'],
+  ['Tahoma', 'تاهوما']
+];
+function uiPrefs() { try { return JSON.parse(localStorage.getItem('cmt_ui') || '{}'); } catch (e) { return {}; } }
+function applyUi(p) {
+  p = p || uiPrefs(); MZ.ui = p;
+  const r = document.documentElement.style;
+  r.setProperty('--tabfs', (p.tsize || 15) + 'px');
+  r.setProperty('--basefs', (p.fsize || 14) + 'px');
+  r.setProperty('--tabink', p.tcolor || '');
+  if (document.body) document.body.style.fontFamily = p.font ? ('"' + p.font + '",Tahoma,"Segoe UI",sans-serif') : '';
+}
+applyUi();
+
+/* ---------- lite mode: Electron wrapper / weak hardware gets crisp static rendering ---------- */
+const IS_ELECTRON = /Electron/.test(navigator.userAgent);
+function liteOn() {
+  try { const v = localStorage.getItem('cmt_lite'); if (v === 'on') return true; if (v === 'off') return false; } catch (e) {}
+  return IS_ELECTRON || (navigator.hardwareConcurrency || 4) <= 2 || !!(navigator.deviceMemory && navigator.deviceMemory <= 2);
+}
+window.LITE = liteOn();
+if (window.LITE) document.documentElement.classList.add('lite');
 function themePicker() {
   const grid = h('div', { class: 'thm-grid' }, THEMES.map(t => h('button', { class: 'thm-card' + (MZ.theme === t.k ? ' on' : ''), type: 'button', onclick: guard(async () => {
     applyTheme(t.k);
@@ -204,12 +234,25 @@ async function dirtyGuard(winId, proceed) {
 }
 window.confirmDialog = confirmDialog;
 
+/* ---------- back button ---------- */
+const BACK_PARENT = { sinv_new: 'sinv_list' };
+function backTargetOf(id) {
+  if (BACK_PARENT[id]) return BACK_PARENT[id];
+  if (/^sinv_(view|edit)_\d+$/.test(id)) return 'sinv_list';
+  return null;
+}
+function winBackBtn(id) {
+  const t = backTargetOf(id); if (!t || !MZ.pages[t]) return null;
+  return h('button', { class: 'backbtn', type: 'button', onclick: () => openPage(t) }, '→ رجوع إلى ' + (TITLES[t] || 'القائمة'));
+}
+
 /* ---------- window manager (MDI tabs) ---------- */
 function openWin(id, title, build, opts = {}) {
   if (MZ.active && MZ.active !== id && isWinDirty(MZ.active)) { dirtyGuard(MZ.active, () => openWin(id, title, build, opts)); return MZ.wins[id]; }
   SND.play("open");
   if (MZ.wins[id]) { activate(id); if (opts.refresh) MZ.wins[id].refresh && MZ.wins[id].refresh(); return MZ.wins[id]; }
   const body = h('div', { class: 'win-content' });
+  if (backTargetOf(id)) body.classList.add('subwin');
   const w = { id, title, body, refresh: null };
   MZ.wins[id] = w; MZ.order.push(id);
   $('#desk').append(body);
@@ -236,7 +279,10 @@ function renderTabs() {
 }
 
 /* ---------- common layout pieces ---------- */
-const pageHead = (title, ...actions) => h('div', { class: 'page-head' }, h('h2', null, title), h('div', { class: 'actions' }, actions));
+const pageHead = (title, ...actions) => {
+  const bb = winBackBtn(MZ.active);
+  return h('div', { class: 'page-head' + (bb ? ' has-back' : '') }, bb, h('h2', null, title), h('div', { class: 'actions' }, actions));
+};
 const btn = (t, fn, kind = '') => h('button', { class: 'btn ' + kind, onclick: guard(fn) }, t);
 function filterBar(fields, onrun, initial = {}) {
   const fs = fields.map(f => ({ ...mkField(f, initial[f.k]), k: f.k, label: f.t }));
