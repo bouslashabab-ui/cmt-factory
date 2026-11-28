@@ -4,18 +4,19 @@ const LOGO = '<svg viewBox="0 0 64 64" fill="none"><rect width="64" height="64" 
 const APP_NAME = 'إدارة مصنع الملابس';
 const MENUS = [
   ['الفواتير', [['🧾', 'فواتير المبيعات', 'sinv_list'], ['➕', 'فاتورة جديدة', 'sinv_new'], ['🏬', 'الفروع', 'branches']]],
+  ['المشتريات والموردون', [['🧾', 'فواتير المشتريات', 'pinv_list'], ['➕', 'فاتورة شراء جديدة', 'pinv_new'], ['🏭', 'الموردون', 'gl_suppliers'], ['📑', 'أستاذ الموردين', 'gl_supledger'], ['🧮', 'كشف مورد تفصيلي', 'supplier_statement']]],
   ['الملفات', [['👥', 'العملاء (أصحاب القماش)', 'clients'], ['👕', 'الموديلات وسعر التصنيع', 'models'], ['👷', 'الموظفون', 'employees']]],
   ['القماش والقص', [['📥', 'مخزن استلام القماش', 'store'], ['✂', 'أمر القص التفصيلي', 'orders'], ['🖨', 'تتبع الخارج والراجع (طباعة)', 'outs']]],
   ['الحسابات', [['💰', 'سجل مقبوضات العملاء', 'payments'], ['📒', 'حسابات العملاء المجمعة', 'accounts'], ['📑', 'كشف حساب العميل', 'acctstmt']]],
   ['المخزون', [['📦', 'رصيد المخزون', 'inv_stock'], ['🏷', 'الأصناف والمخازن', 'inv_items'], ['🧾', 'حركات المخزون', 'inv_moves'], ['📇', 'كارت الصنف', 'inv_card'], ['📋', 'جرد المخزون', 'inv_count']]],
-  ['المحاسبة (الدورة المحاسبية)', [['📚', 'دليل الحسابات', 'gl_accounts'], ['📒', 'قيود اليومية', 'gl_journal'], ['📖', 'دفتر الأستاذ', 'gl_ledger'], ['👥', 'أستاذ مساعد العملاء', 'gl_subledger'], ['🏭', 'الموردون', 'gl_suppliers'], ['📑', 'أستاذ مساعد الموردين', 'gl_supledger'], ['🧮', 'كشف مورد تفصيلي', 'supplier_statement'], ['⚖', 'ميزان المراجعة', 'gl_trial'], ['📊', 'القوائم المالية', 'gl_statements'], ['💧', 'قائمة التدفقات النقدية', 'cash_flow'], ['🏦', 'التسوية البنكية', 'bank_rec'], ['🏗️', 'الأصول الثابتة', 'assets'], ['📆', 'الاستحقاقات والمقدمات', 'accruals'], ['🧾', 'ضريبة القيمة المضافة', 'vat'], ['🔒', 'إقفال الفترة', 'gl_close']]],
+  ['المحاسبة (الدورة المحاسبية)', [['📚', 'دليل الحسابات', 'gl_accounts'], ['📒', 'قيود اليومية', 'gl_journal'], ['📖', 'دفتر الأستاذ', 'gl_ledger'], ['👥', 'أستاذ مساعد العملاء', 'gl_subledger'], ['⚖', 'ميزان المراجعة', 'gl_trial'], ['📊', 'القوائم المالية', 'gl_statements'], ['💧', 'قائمة التدفقات النقدية', 'cash_flow'], ['🏦', 'التسوية البنكية', 'bank_rec'], ['🏗️', 'الأصول الثابتة', 'assets'], ['📆', 'الاستحقاقات والمقدمات', 'accruals'], ['🧾', 'ضريبة القيمة المضافة', 'vat'], ['🔒', 'إقفال الفترة', 'gl_close']]],
   ['المساعد والتحليل', [['🤖', 'المساعد الذكي', 'assistant'], ['🧾', 'الإقفال اليومي', 'daily_close'], ['🏭', 'لوحة مراحل الإنتاج', 'stages_board'], ['💸', 'المصروفات', 'expenses'], ['📈', 'ربحية أوامر القص', 'profit'], ['⏳', 'أعمار الديون', 'aging']]],
   ['العمال', [['🗓', 'حضور وانصراف العمال', 'attendance'], ['💵', 'المرتبات', 'payroll']]],
   ['النظام', [['⚙', 'الإعدادات', 'settings', 'admin'], ['👤', 'المستخدمون', 'users', 'admin'], ['🕵', 'سجل المراجعة', 'audit', 'admin']]]
 ];
 const TOOLBAR = [['🏠', 'الرئيسية', 'home'], ['🧾', 'الفواتير', 'sinv_list'], ['📥', 'مخزن القماش', 'store'], ['✂', 'أمر القص', 'orders'], ['🖨', 'الخارج والراجع', 'outs'], ['💰', 'المقبوضات', 'payments'], ['📒', 'حسابات العملاء', 'accounts'], ['🗓', 'الحضور', 'attendance'], ['💵', 'المرتبات', 'payroll']];
 const TITLES = {}; MENUS.forEach(m => m[1].forEach(i => { TITLES[i[2]] = i[1]; })); TITLES.home = 'الرئيسية';
-const PAGE_PERM = { sinv_list: 'invoices', sinv_new: 'invoices', branches: 'invoices', clients: 'masters', models: 'masters', stages: 'masters', employees: 'hr', store: 'fabric', orders: 'fabric', outs: 'fabric', payments: 'accounts', accounts: 'accounts', acctstmt: 'accounts', inv_stock: 'inventory', inv_items: 'inventory', inv_moves: 'inventory', inv_card: 'inventory', inv_count: 'inventory', gl_accounts: 'accounting', gl_journal: 'accounting', gl_ledger: 'accounting', gl_subledger: 'accounting', gl_suppliers: 'accounting', gl_supledger: 'accounting', supplier_statement: 'accounting', gl_trial: 'accounting', gl_statements: 'accounting', cash_flow: 'accounting', bank_rec: 'accounting', assets: 'accounting', accruals: 'accounting', vat: 'accounting', gl_close: 'accounting', assistant: 'tools', daily_close: 'tools', stages_board: 'tools', expenses: 'tools', profit: 'tools', aging: 'tools', attendance: 'hr', payroll: 'hr', receipts: 'fabric', cuts: 'fabric', prod: 'fabric', deliveries: 'fabric', invoices: 'fabric' };
+const PAGE_PERM = { sinv_list: 'invoices', sinv_new: 'invoices', pinv_list: 'invoices', pinv_new: 'invoices', branches: 'invoices', clients: 'masters', models: 'masters', stages: 'masters', employees: 'hr', store: 'fabric', orders: 'fabric', outs: 'fabric', payments: 'accounts', accounts: 'accounts', acctstmt: 'accounts', inv_stock: 'inventory', inv_items: 'inventory', inv_moves: 'inventory', inv_card: 'inventory', inv_count: 'inventory', gl_accounts: 'accounting', gl_journal: 'accounting', gl_ledger: 'accounting', gl_subledger: 'accounting', gl_suppliers: 'accounting', gl_supledger: 'accounting', supplier_statement: 'accounting', gl_trial: 'accounting', gl_statements: 'accounting', cash_flow: 'accounting', bank_rec: 'accounting', assets: 'accounting', accruals: 'accounting', vat: 'accounting', gl_close: 'accounting', assistant: 'tools', daily_close: 'tools', stages_board: 'tools', expenses: 'tools', profit: 'tools', aging: 'tools', attendance: 'hr', payroll: 'hr', receipts: 'fabric', cuts: 'fabric', prod: 'fabric', deliveries: 'fabric', invoices: 'fabric' };
 const canSee = (key) => { const k = PAGE_PERM[key]; if (!k) return true; const ps = (MZ.user && MZ.user.perms) || ['*']; return ps.includes('*') || ps.includes(k); };
 
 async function openPage(key) {
@@ -33,7 +34,7 @@ function buildTopnav(nm) {
   const PAGE2SEC = {}; MENUS.forEach(([t, items]) => items.forEach(i => { PAGE2SEC[i[2]] = t; }));
   const secOf = (k) => PAGE2SEC[k] || (String(k).startsWith('sinv_view_') || String(k).startsWith('sinv_edit_') ? PAGE2SEC.sinv_list : null);
   const adminOk = (i) => (i[3] !== 'admin' || MZ.user.role === 'admin') && canSee(i[2]);
-  const SHORT = { 'المحاسبة (الدورة المحاسبية)': 'المحاسبة' };
+  const SHORT = { 'المحاسبة (الدورة المحاسبية)': 'المحاسبة', 'المشتريات والموردون': 'المشتريات' };
   const MORE = 'المزيد';
   let openSec = null;
   const panel = h('div', { class: 'tn-panel', role: 'menu' });
