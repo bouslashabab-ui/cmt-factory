@@ -100,3 +100,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(
 .ctab.on{background:var(--lime2);color:#191204}
 .toast{background:#1a2238;color:#e9edf8;border-right-color:var(--lime2)}
 .bar .bb i.e{background:var(--lime2)}
+/* theme picker cards on dark */
+.thm-card{background:#1a2238;border-color:#2c3656}
+.thm-card:hover{border-color:var(--lime2)}
+.thm-card.on{border-color:var(--lime2);box-shadow:0 0 0 3px rgba(217,180,92,.22)}
+.thm-card b{color:#e9edf8}.thm-card small{color:#8b93ad}
+.thm-note{color:#8b93ad}
