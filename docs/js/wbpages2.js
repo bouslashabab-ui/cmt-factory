@@ -47,10 +47,11 @@ P.assistant = async () => {
 
 /* ---------- لوحة مراحل الإنتاج ---------- */
 P.stages_board = async () => {
-  const d = await GET('/stages') || {}; if (!Array.isArray(d.rows)) d.rows = []; if (!Array.isArray(d.stages)) d.stages = []; const root = h('div');
+  let d = null, sbBase = '/stages-board'; try { d = await GET('/stages-board'); } catch (e) { sbBase = '/stages'; d = await GET('/stages'); }
+  d = d || {}; if (!Array.isArray(d.rows)) d.rows = []; if (!Array.isArray(d.stages)) d.stages = []; const root = h('div');
   const col = (st) => { const items = d.rows.filter(r => r.stage === st); return h('div', { class: 'kcol' }, h('div', { class: 'kh' }, st, h('span', null, items.length)), items.map(r => {
     const i = d.stages.indexOf(st); return h('div', { class: 'kcard' + (r.days_in_stage > 10 && st !== 'تم التسليم' ? ' late' : '') }, h('b', null, r.code), h('div', null, r.client_name + ' | ' + (r.model_name || '')), h('small', null, r.pieces + ' قطعة | مسلّم ' + r.delivered + ' | ' + r.days_in_stage + ' يوم'),
-      canW() ? h('div', { class: 'kmv' }, i > 0 ? btn('→ ' + d.stages[i - 1], async () => { await PUT('/stages/' + r.id, { stage: d.stages[i - 1] }); openPage('stages_board'); }, 'sm') : '', i < d.stages.length - 1 ? btn(d.stages[i + 1] + ' ←', async () => { await PUT('/stages/' + r.id, { stage: d.stages[i + 1] }); openPage('stages_board'); }, 'sm pri') : '') : ''); })); };
+      canW() ? h('div', { class: 'kmv' }, i > 0 ? btn('→ ' + d.stages[i - 1], async () => { await PUT(sbBase + '/' + r.id, { stage: d.stages[i - 1] }); openPage('stages_board'); }, 'sm') : '', i < d.stages.length - 1 ? btn(d.stages[i + 1] + ' ←', async () => { await PUT(sbBase + '/' + r.id, { stage: d.stages[i + 1] }); openPage('stages_board'); }, 'sm pri') : '') : ''); })); };
   root.append(pageHead('🏭 لوحة مراحل الإنتاج', btn('⬇ تصدير', () => exportChooser([{ title: 'المراحل', head: ['كود القصة', 'العميل', 'الموديل', 'القطع', 'المسلّم', 'المرحلة', 'أيام في المرحلة'], rows: d.rows.map(r => [r.code, r.client_name, r.model_name || '', r.pieces, r.delivered, r.stage, r.days_in_stage]) }], 'مراحل الإنتاج'))),
     h('div', { class: 'panel' }, h('div', { class: 'pb' }, 'كل قصة تظهر مرة واحدة. حرّكها بين المراحل بالأزرار. القصة التي يكتمل تسليمها تنتقل تلقائياً إلى "تم التسليم"، وتُلوَّن بالأحمر لو تأخرت أكثر من 10 أيام في مرحلة.')),
     h('div', { class: 'kanban' }, d.stages.map(col))); return root;
