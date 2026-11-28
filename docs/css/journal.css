@@ -89,3 +89,5 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(
 .sclock .ck-bar{background:linear-gradient(90deg,var(--lime2),#e3ddcc)}
 .today.sclock .ck-t{color:#f4f1e8}.today.sclock .ck-d{color:#b5ae9c}
 .seg button.on{color:var(--lime2)}
+/* topnav active contrast on the ink strip */
+.tn-sec.on{background:rgba(179,57,44,.34);color:#f0b9b2}
