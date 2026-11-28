@@ -5,14 +5,11 @@ const APP_NAME = 'إدارة مصنع الملابس';
 const MENUS = [
   ['الفواتير', [['🧾', 'فواتير المبيعات', 'sinv_list'], ['➕', 'فاتورة جديدة', 'sinv_new'], ['🏬', 'الفروع', 'branches']]],
   ['المشتريات والموردون', [['🧾', 'فواتير المشتريات', 'pinv_list'], ['➕', 'فاتورة شراء جديدة', 'pinv_new'], ['🏭', 'الموردون', 'gl_suppliers'], ['📑', 'أستاذ الموردين', 'gl_supledger'], ['🧮', 'كشف مورد تفصيلي', 'supplier_statement']]],
-  ['الملفات', [['👥', 'العملاء (أصحاب القماش)', 'clients'], ['👕', 'الموديلات وسعر التصنيع', 'models'], ['👷', 'الموظفون', 'employees']]],
-  ['القماش والقص', [['📥', 'مخزن استلام القماش', 'store'], ['✂', 'أمر القص التفصيلي', 'orders'], ['🖨', 'تتبع الخارج والراجع (طباعة)', 'outs']]],
-  ['الحسابات', [['💰', 'سجل مقبوضات العملاء', 'payments'], ['📒', 'حسابات العملاء المجمعة', 'accounts'], ['📑', 'كشف حساب العميل', 'acctstmt']]],
+  ['الملفات', [['👥', 'العملاء (أصحاب القماش)', 'clients'], ['👕', 'الموديلات وسعر التصنيع', 'models'], ['🧵', 'مراحل الإنتاج', 'stages'], ['📊', 'لوحة مراحل الإنتاج', 'stages_board'], ['👷', 'الموظفون', 'employees']]],
+  ['القماش والقص', [['📥', 'مخزن استلام القماش', 'store'], ['✂', 'أمر القص التفصيلي', 'orders'], ['🖨', 'تتبع الخارج والراجع (طباعة)', 'outs'], ['📈', 'ربحية أوامر القص', 'profit']]],
+  ['الحسابات', [['💰', 'سجل مقبوضات العملاء', 'payments'], ['📒', 'حسابات العملاء المجمعة', 'accounts'], ['📑', 'كشف حساب العميل', 'acctstmt'], ['💸', 'المصروفات', 'expenses'], ['🗓', 'حضور وانصراف العمال', 'attendance'], ['💵', 'المرتبات', 'payroll'], ['⏳', 'أعمار الديون', 'aging'], ['🧾', 'الإقفال اليومي', 'daily_close'], ['📚', 'دليل الحسابات', 'gl_accounts'], ['📒', 'قيود اليومية', 'gl_journal'], ['📖', 'دفتر الأستاذ', 'gl_ledger'], ['👥', 'أستاذ مساعد العملاء', 'gl_subledger'], ['⚖', 'ميزان المراجعة', 'gl_trial'], ['📊', 'القوائم المالية', 'gl_statements'], ['💧', 'قائمة التدفقات النقدية', 'cash_flow'], ['🏦', 'التسوية البنكية', 'bank_rec'], ['🏗️', 'الأصول الثابتة', 'assets'], ['📆', 'الاستحقاقات والمقدمات', 'accruals'], ['🧾', 'ضريبة القيمة المضافة', 'vat'], ['🔒', 'إقفال الفترة', 'gl_close']]],
   ['المخزون', [['📦', 'رصيد المخزون', 'inv_stock'], ['🏷', 'الأصناف والمخازن', 'inv_items'], ['🧾', 'حركات المخزون', 'inv_moves'], ['📇', 'كارت الصنف', 'inv_card'], ['📋', 'جرد المخزون', 'inv_count']]],
-  ['المحاسبة (الدورة المحاسبية)', [['📚', 'دليل الحسابات', 'gl_accounts'], ['📒', 'قيود اليومية', 'gl_journal'], ['📖', 'دفتر الأستاذ', 'gl_ledger'], ['👥', 'أستاذ مساعد العملاء', 'gl_subledger'], ['⚖', 'ميزان المراجعة', 'gl_trial'], ['📊', 'القوائم المالية', 'gl_statements'], ['💧', 'قائمة التدفقات النقدية', 'cash_flow'], ['🏦', 'التسوية البنكية', 'bank_rec'], ['🏗️', 'الأصول الثابتة', 'assets'], ['📆', 'الاستحقاقات والمقدمات', 'accruals'], ['🧾', 'ضريبة القيمة المضافة', 'vat'], ['🔒', 'إقفال الفترة', 'gl_close']]],
-  ['المساعد والتحليل', [['🤖', 'المساعد الذكي', 'assistant'], ['🧾', 'الإقفال اليومي', 'daily_close'], ['🏭', 'لوحة مراحل الإنتاج', 'stages_board'], ['💸', 'المصروفات', 'expenses'], ['📈', 'ربحية أوامر القص', 'profit'], ['⏳', 'أعمار الديون', 'aging']]],
-  ['العمال', [['🗓', 'حضور وانصراف العمال', 'attendance'], ['💵', 'المرتبات', 'payroll']]],
-  ['النظام', [['⚙', 'الإعدادات', 'settings', 'admin'], ['👤', 'المستخدمون', 'users', 'admin'], ['🕵', 'سجل المراجعة', 'audit', 'admin']]]
+  ['المزيد', [['🤖', 'المساعد الذكي', 'assistant'], ['⚙', 'الإعدادات', 'settings', 'admin'], ['👤', 'المستخدمون', 'users', 'admin'], ['🕵', 'سجل المراجعة', 'audit', 'admin']]]
 ];
 const TOOLBAR = [['🏠', 'الرئيسية', 'home'], ['🧾', 'الفواتير', 'sinv_list'], ['📥', 'مخزن القماش', 'store'], ['✂', 'أمر القص', 'orders'], ['🖨', 'الخارج والراجع', 'outs'], ['💰', 'المقبوضات', 'payments'], ['📒', 'حسابات العملاء', 'accounts'], ['🗓', 'الحضور', 'attendance'], ['💵', 'المرتبات', 'payroll']];
 const TITLES = {}; MENUS.forEach(m => m[1].forEach(i => { TITLES[i[2]] = i[1]; })); TITLES.home = 'الرئيسية';
@@ -34,8 +31,8 @@ function buildTopnav(nm) {
   const PAGE2SEC = {}; MENUS.forEach(([t, items]) => items.forEach(i => { PAGE2SEC[i[2]] = t; }));
   const secOf = (k) => PAGE2SEC[k] || (String(k).startsWith('sinv_view_') || String(k).startsWith('sinv_edit_') ? PAGE2SEC.sinv_list : null);
   const adminOk = (i) => (i[3] !== 'admin' || MZ.user.role === 'admin') && canSee(i[2]);
-  const SHORT = { 'المحاسبة (الدورة المحاسبية)': 'المحاسبة', 'المشتريات والموردون': 'المشتريات' };
-  const MORE = 'المزيد';
+  const SHORT = { 'المشتريات والموردون': 'المشتريات' };
+  const MORE = '__more__';
   let openSec = null;
   const panel = h('div', { class: 'tn-panel', role: 'menu' });
   const allSecs = MENUS.filter(([t, items]) => items.filter(adminOk).length).map(([t, items]) => [t, items.filter(adminOk)]);
@@ -70,7 +67,7 @@ function buildTopnav(nm) {
     secBtns = {}; navBtns = [homeBtn];
     secsNav.innerHTML = '';
     secsNav.append(homeBtn, ...visSecs.map(([t, items]) => mkSecBtn(t, items, SHORT[t] || t)));
-    if (overSecs.length) secsNav.append(mkSecBtn(MORE, [], '⋮ ' + MORE));
+    if (overSecs.length) secsNav.append(mkSecBtn(MORE, [], '⋮ المزيد'));
   }
   renderSecs();
   function layout() {
@@ -212,14 +209,31 @@ function loginScreen() {
   const title = h('h2', null, 'دخول النظام'), sub = h('div', { class: 'sub' }, 'سجّل الدخول للمتابعة');
   const compBox = h('div', { style: { display: 'none' } }, h('label', null, 'اسم المصنع'), company);
   let setupMode = false;
+  let devTok = null, devInfo = null;
+  try { devTok = localStorage.getItem('cmt_dev'); devInfo = JSON.parse(localStorage.getItem('cmt_dev_user') || 'null'); } catch (x) {}
+  const devCard = h('div', { class: 'lg-dev', style: { display: 'none' } });
+  if (devTok && devInfo && (devInfo.name || devInfo.username)) {
+    const devName = String(devInfo.name || devInfo.username);
+    const devBtn = h('button', { type: 'button', class: 'go lg-dev-go' }, 'متابعة');
+    const forgetL = h('a', { href: '#', class: 'lg-dev-forget', onclick: async (e) => { e.preventDefault(); try { await POST('/device-forget', { device_token: devTok }); } catch (x) {} try { localStorage.removeItem('cmt_dev'); localStorage.removeItem('cmt_dev_user'); } catch (x) {} devCard.style.display = 'none'; msg.className = 'lg-msg info'; msg.textContent = 'تم نسيان هذا الجهاز، سجل الدخول بكلمة المرور'; user.focus(); } }, 'نسيان هذا الجهاز');
+    devBtn.addEventListener('click', async () => {
+      devBtn.disabled = true; msg.className = 'lg-msg info'; msg.textContent = 'جاري الدخول...';
+      try {
+        const r = await POST('/device-login', { device_token: devTok });
+        MZ.token = r.token; sessionStorage.setItem('cmt_tok', r.token); try { localStorage.setItem('cmt_tok', r.token); } catch (x) {} SND.play('login'); await boot();
+      } catch (err) { devBtn.disabled = false; try { localStorage.removeItem('cmt_dev'); localStorage.removeItem('cmt_dev_user'); } catch (x) {} devCard.style.display = 'none'; msg.className = 'lg-msg'; msg.textContent = err.message; }
+    });
+    devCard.append(h('div', { class: 'lg-dev-av' }, devName.trim().charAt(0)), h('div', { class: 'lg-dev-tx' }, h('b', null, devName), h('small', null, 'هذا الجهاز محفوظ، ادخل بضغطة واحدة')), devBtn, forgetL);
+    devCard.style.display = 'flex';
+  }
   const form = h('form', { class: 'lg-card', onsubmit: async (e) => {
     e.preventDefault(); go.disabled = true; go.classList.add('busy'); msg.className = 'lg-msg info'; msg.textContent = 'جاري التحقق...';
     try {
       if (setupMode) await POST('/setup', { username: user.value, password: pass.value, company: company.value });
-      const r = await POST('/login', { username: user.value, password: pass.value });
-      go.classList.remove('busy'); go.classList.add('done'); MZ.token = r.token; sessionStorage.setItem('cmt_tok', r.token); try { if (remIn.checked) localStorage.setItem('cmt_tok', r.token); else localStorage.removeItem('cmt_tok'); } catch (x) {} try { history.replaceState(null, '', location.pathname); } catch (x) {} SND.play('login'); await boot();
+      const r = await POST('/login', { username: user.value, password: pass.value, remember: remIn.checked });
+      go.classList.remove('busy'); go.classList.add('done'); MZ.token = r.token; sessionStorage.setItem('cmt_tok', r.token); try { if (remIn.checked) { localStorage.setItem('cmt_tok', r.token); if (r.device_token) { localStorage.setItem('cmt_dev', r.device_token); localStorage.setItem('cmt_dev_user', JSON.stringify({ username: r.user.username, name: r.user.name })); } } else { localStorage.removeItem('cmt_tok'); localStorage.removeItem('cmt_dev'); localStorage.removeItem('cmt_dev_user'); } } catch (x) {} try { history.replaceState(null, '', location.pathname); } catch (x) {} SND.play('login'); await boot();
     } catch (err) { go.classList.remove('busy'); msg.className = 'lg-msg'; msg.textContent = err.message; go.disabled = false; form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); }
-  } }, title, sub, compBox, h('label', { for: 'u' }, 'اسم المستخدم'), userFld, h('label', { for: 'p' }, 'كلمة المرور'), passFld, caps, remRow, go, forgotLink, msg, h('div', { class: 'lg-foot' }, APP_NAME + ' © التصنيع للغير'));
+  } }, title, sub, devCard, compBox, h('label', { for: 'u' }, 'اسم المستخدم'), userFld, h('label', { for: 'p' }, 'كلمة المرور'), passFld, caps, remRow, go, forgotLink, msg, h('div', { class: 'lg-foot' }, APP_NAME + ' © التصنيع للغير'));
   const ART = '<svg viewBox="0 0 520 300" fill="none"><g class="float"><rect x="20" y="170" width="190" height="64" rx="32" fill="#3547e0"/><ellipse cx="52" cy="202" rx="22" ry="22" fill="#0f1437"/><ellipse cx="52" cy="202" rx="9" ry="9" fill="#f2f4fb"/><rect x="40" y="120" width="190" height="60" rx="30" fill="#9aa8ff" stroke="#0f1437" stroke-width="2"/><ellipse cx="72" cy="150" rx="20" ry="20" fill="#0f1437"/><ellipse cx="72" cy="150" rx="8" ry="8" fill="#f2f4fb"/></g><path class="draw" d="M300 60l40-22 30 14 30-14 40 22-22 36-22-10v118h-92V86l-22 10z" fill="#fff" stroke="#0f1437" stroke-width="3" stroke-linejoin="round"/><path class="cut" d="M262 20C300 140 420 150 500 270" stroke="#f0457a" stroke-width="3" stroke-linecap="round"/><circle cx="262" cy="20" r="6" fill="#f0457a"/><path d="M330 120h70M330 140h70M330 160h50" stroke="#9aa8ff" stroke-width="5" stroke-linecap="round"/><g transform="translate(250 262)"><path d="M0 0h260" stroke="#0f1437" stroke-width="2" stroke-dasharray="3 6"/><text x="0" y="-8" font-size="12" fill="#7a82a6" font-family="Tahoma">cut · sew · deliver</text></g></svg>';
   const LT_ROT = { classic: 'rotate(-1deg)', dark: '', glass: '', emerald: 'rotate(1deg)', sunset: 'rotate(-1.5deg)', mono: '', violet: 'rotate(-1deg)' };
   const MOTTO = ['كل غرزة متقنة… خطوة أقرب للإتقان.', 'النظام الصح بيوفّر وقتك ويرفع إنتاجك.', 'صنعة النهاردة… سمعة بكرة.', 'الإنتاج المنظّم = راحة بال وربح أسرع.', 'ابدأ يومك بخطة… واختمه بإنجاز.'];
