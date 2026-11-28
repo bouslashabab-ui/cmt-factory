@@ -506,7 +506,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #app .land[data-lt="classic"] .lg-card .lg-foot{color:var(--mut);margin-top:16px;text-align:center;font-size:12.5px}
 #app .land[data-lt="classic"] .lg-card.shake{animation:shk .45s ease}
 @keyframes shk{20%{transform:translateX(-9px) rotate(-1deg)}40%{transform:translateX(8px) rotate(-1deg)}60%{transform:translateX(-6px) rotate(-1deg)}80%{transform:translateX(4px) rotate(-1deg)}}
-#app .land[data-lt="classic"] .login-clock{position:absolute;top:30px;left:30px;z-index:2;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:22px;padding:18px 30px 20px;box-shadow:0 18px 46px rgba(0,0,0,.4);min-width:0;cursor:pointer;animation:clockGlow 3.2s ease-in-out infinite;transition:transform .2s}
+#app .land[data-lt="classic"] .login-clock{position:absolute;top:30px;left:30px;z-index:3;color:#ffd7e6;background:rgba(15,20,55,.82);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:22px;padding:18px 30px 20px;box-shadow:0 18px 46px rgba(0,0,0,.4);min-width:0;cursor:pointer;animation:clockGlow 3.2s ease-in-out infinite;transition:transform .2s}
 #app .land[data-lt="classic"] .login-clock:hover{transform:translateY(-3px) scale(1.04)}
 @keyframes clockGlow{50%{box-shadow:0 18px 46px rgba(0,0,0,.4),0 0 0 9px rgba(255,107,157,.16)}}
 #app .land[data-lt="classic"] .login-clock .ck-t{font-size:46px;color:#ff6b9d;line-height:1.05}
@@ -597,6 +597,11 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 }
 #app .land[data-lt="dark"] .motto-t{background:linear-gradient(100deg,#c8ff5a,#4fd6c0 70%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
 #app .land[data-lt="dark"] .motto:before{content:"";width:36px;height:4px;border-radius:4px;background:linear-gradient(90deg,#4fd6c0,#c8ff5a);flex:none;animation:mottoBar 4.5s linear infinite}
+/* lite-mode clock text: readable fallback color per dark design (full mode colors live on the digit spans) */
+#app .land[data-lt="dark"] .login-clock{color:#e9ffb8}
+#app .land[data-lt="emerald"] .login-clock{color:#ffe9b0}
+#app .land[data-lt="sunset"] .login-clock{color:#ffd9c2}
+#app .land[data-lt="violet"] .login-clock{color:#e9d5ff}
 /* ---- design: glass ---- */
 #app .land[data-lt="glass"]{background:linear-gradient(120deg,#eef1ff,#ffeef5,#e9fff4,#eef1ff);background-size:300% 300%;animation:meshBg 16s ease infinite;color:var(--ink);grid-template-columns:1fr 1.15fr}
 #app .land[data-lt="glass"] h1{font-size:clamp(36px,4.6vw,64px)}
