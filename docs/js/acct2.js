@@ -102,7 +102,8 @@
         { t: 'التكلفة', cls: 'num', f: a => fmt(a.cost) }, { t: 'الخردة', cls: 'num', f: a => fmt(a.salvage) },
         { t: 'العمر (سنة)', cls: 'num', f: a => a.life_years }, { t: 'قسط شهري', cls: 'num', f: a => fmt(a.monthly) },
         { t: 'مجمع الإهلاك', cls: 'num', f: a => fmt(a.acc_dep) }, { t: 'صافي القيمة', cls: 'num', f: a => fmt(a.nbv) },
-        { t: 'الحالة', f: a => a.fully_depreciated ? h('span', { class: 'okb' }, 'مُهلك بالكامل') : h('span', { class: 'okb ok' }, 'نشط') }
+        { t: 'الحالة', f: a => a.fully_depreciated ? h('span', { class: 'okb' }, 'مُهلك بالكامل') : h('span', { class: 'okb ok' }, 'نشط') },
+        canW() ? { t: '', f: a => btn('حذف', async () => { if (await confirmBox('حذف الأصل "' + a.name + '" وعكس قيوده المحاسبية؟')) { await DEL('/gl2/assets/' + a.id); toast('تم الحذف وعكس القيود'); list = await GET('/gl2/assets'); if (!Array.isArray(list)) list = []; renderList(); } }, 'sm danger') } : null
       ], list, { empty: 'لا توجد أصول مسجلة بعد — أضف أول أصل من النموذج أدناه' })));
     };
     if (canW()) {
@@ -194,7 +195,8 @@
       pHist.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'سجل استحقاقات الرواتب'), table([
         { t: 'الشهر', f: r => VZ.monthLabel(r.ym) }, { t: 'الإجمالي', cls: 'num', f: r => fmt(+r.gross) }, { t: 'الصافي', cls: 'num', f: r => fmt(+r.net) },
         { t: 'المسدد', cls: 'num', f: r => fmt(+r.paid_amount) }, { t: 'المتبقي', cls: 'num', f: r => fmt(r2c(r.net - r.paid_amount)) },
-        { t: 'قيد', cls: 'num', f: r => r.entry_no || '' }, { t: 'الحالة', f: r => +r.net - +r.paid_amount > 0.004 ? h('span', { class: 'okb' }, 'غير مسددة بالكامل') : h('span', { class: 'okb ok' }, 'مسددة') }
+        { t: 'قيد', cls: 'num', f: r => r.entry_no || '' }, { t: 'الحالة', f: r => +r.net - +r.paid_amount > 0.004 ? h('span', { class: 'okb' }, 'غير مسددة بالكامل') : h('span', { class: 'okb ok' }, 'مسددة') },
+        canW() ? { t: '', f: r => +r.paid_amount > 0 ? null : btn('حذف', async () => { if (await confirmBox('حذف استحقاق رواتب ' + VZ.monthLabel(r.ym) + ' وعكس قيده؟')) { await DEL('/gl2/payroll-accrual/' + r.id); toast('تم الحذف وعكس القيد'); await loadPayrollHist(); } }, 'sm danger') } : null
       ], rs, { empty: 'لا توجد استحقاقات مرحّلة بعد' })));
     });
     const payNow = guard(async () => {
@@ -235,7 +237,8 @@
         { t: 'المصروف', f: r => r.name }, { t: 'حساب المصروف', f: r => r.expense_name }, { t: 'من شهر', f: r => VZ.monthLabel(r.start_month) },
         { t: 'شهور', cls: 'num', f: r => r.months }, { t: 'الإجمالي', cls: 'num', f: r => fmt(r.total) }, { t: 'شهريًا', cls: 'num', f: r => fmt(r.monthly) },
         { t: 'المستهلك', cls: 'num', f: r => fmt(r.amortized) }, { t: 'المتبقي', cls: 'num', f: r => fmt(r.remaining) },
-        { t: 'الحالة', f: r => r.done ? h('span', { class: 'okb' }, 'مستهلك بالكامل') : h('span', { class: 'okb ok' }, 'نشط') }
+        { t: 'الحالة', f: r => r.done ? h('span', { class: 'okb' }, 'مستهلك بالكامل') : h('span', { class: 'okb ok' }, 'نشط') },
+        canW() ? { t: '', f: r => btn('حذف', async () => { if (await confirmBox('حذف "' + r.name + '" وعكس قيوده المحاسبية؟')) { await DEL('/gl2/prepaids/' + r.id); toast('تم الحذف وعكس القيود'); await loadPrepaids(); await refreshKpis(); } }, 'sm danger') } : null
       ], rs, { empty: 'لا توجد مصروفات مقدمة — أضف أول واحد أعلاه' }));
     });
     const addPrepaid = guard(async () => {
@@ -292,7 +295,7 @@
         { t: 'المصروف', f: r => r.name }, { t: 'الحساب', f: r => r.expense_name }, { t: 'شهر الاستحقاق', f: r => VZ.monthLabel(r.month) },
         { t: 'المبلغ', cls: 'num', f: r => fmt(r.amount) }, { t: 'قيد الاستحقاق', cls: 'num', f: r => r.entry_no || '' },
         { t: 'الحالة', f: r => r.settled ? h('span', { class: 'okb ok' }, 'مسدد — قيد ' + (r.settled_entry_no || '')) : h('span', { class: 'okb' }, 'غير مسدد') },
-        { t: '', f: r => !r.settled && canW() ? btn('💵 سداد', () => settle(r)) : null }
+        { t: '', f: r => canW() ? h('span', null, !r.settled ? btn('💵 سداد', () => settle(r)) : null, ' ', btn('حذف', async () => { if (await confirmBox('حذف "' + r.name + '" وعكس قيوده المحاسبية؟')) { await DEL('/gl2/accruals/' + r.id); toast('تم الحذف وعكس القيود'); await loadAccruals(); await refreshKpis(); } }, 'sm danger')) : null }
       ], rs, { empty: 'لا توجد مصروفات مستحقة — أضف أول واحد أعلاه' }));
     });
     const addAccrual = guard(async () => {
@@ -406,7 +409,8 @@
       docsBox.append(h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'سجل المستندات الضريبية'), table([
         { t: 'التاريخ', k: 'date' }, { t: 'النوع', f: r => r.kind === 'sale' ? h('span', { class: 'okb ok' }, 'بيع') : h('span', { class: 'okb' }, 'شراء') },
         { t: 'الطرف', f: r => r.party || '' }, { t: 'الصافي', cls: 'num', f: r => fmt(+r.base) }, { t: 'الضريبة', cls: 'num', f: r => fmt(+r.vat) },
-        { t: 'الإجمالي', cls: 'num', f: r => fmt(+r.total) }, { t: 'الحساب', f: r => r.account_name }, { t: 'السداد', f: r => r.settle_name }, { t: 'قيد', cls: 'num', f: r => r.entry_no || '' }
+        { t: 'الإجمالي', cls: 'num', f: r => fmt(+r.total) }, { t: 'الحساب', f: r => r.account_name }, { t: 'السداد', f: r => r.settle_name }, { t: 'قيد', cls: 'num', f: r => r.entry_no || '' },
+        canW() ? { t: '', f: r => btn('حذف', async () => { if (await confirmBox('حذف المستند الضريبي وعكس قيده؟')) { await DEL('/gl2/vat-docs/' + r.id); toast('تم الحذف وعكس القيد'); await loadDocs(); } }, 'sm danger') } : null
       ], rs, { empty: 'لا توجد مستندات في الفترة' })));
     });
     const addDoc = guard(async () => {
