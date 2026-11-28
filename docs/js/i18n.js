@@ -851,6 +851,7 @@
     '🖥 تخطيط الواجهة الداخلية': '🖥 Inner Layout',
     'اختر شكل القوائم داخل البرنامج. يُطبَّق فورًا ويُحفظ على هذا الجهاز.': 'Choose how menus look inside the app. Applies instantly and is saved on this device.',
     'تم تطبيق تخطيط الواجهة': 'Layout applied',
+    'تذكرني على هذا الجهاز': 'Remember me on this device',
     'القائمة العلوية (الأصلي)': 'Top bar (original)',
     'القائمة الجانبية الدائمة': 'Permanent sidebar',
     'المضغوط السريع': 'Compact & fast',
