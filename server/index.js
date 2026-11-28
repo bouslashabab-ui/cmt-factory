@@ -2,6 +2,7 @@
 const http = require('http');
 const C = require('./core');
 const WB = require('./wb');
+const DEMO = process.env.DEMO_MODE === '1' ? require('./demo') : null;
 const { bad, money, isDate, HttpError } = C;
 const Q = async (sql, p) => (await C.db().query(sql, p))[0];
 const int = (x, name) => { const n = Number(x); if (!Number.isInteger(n) || n < 0) throw bad('القيمة غير صحيحة: ' + name); return n; };
@@ -69,7 +70,8 @@ async function login(b, ip) {
   if (!u || !u.active || !C.checkPw(String(b.password || ''), u.pass_hash)) throw new HttpError(401, 'اسم المستخدم أو كلمة المرور غير صحيحة');
   attempts.delete(ip + '|' + username);
   await C.audit({ id: u.id, username }, 'login', 'user', u.id);
-  const out = { token: C.sign({ uid: u.id, exp: Date.now() + 12 * 3600 * 1000 }), user: pub(u) };
+  const ttl = DEMO ? (DEMO.minutes() + 2) * 60 * 1000 : 12 * 3600 * 1000;
+  const out = { token: C.sign({ uid: u.id, exp: Date.now() + ttl }), user: pub(u) };
   if (b.remember === true || b.remember === 1 || b.remember === 'true') {
     const crypto = require('crypto');
     const raw = crypto.randomBytes(32).toString('base64url');
@@ -494,6 +496,7 @@ async function route(req, url, body) {
   if (head === 'device-login' && m === 'POST') return deviceLogin(body, req.socket.remoteAddress || 'ip');
   if (head === 'device-forget' && m === 'POST') return deviceForget(body);
   if (head === 'forgot' && m === 'POST') return forgot(body, req.socket.remoteAddress || 'ip');
+  if (DEMO && head === 'demo') return DEMO.api(m, parts[1]);
   const u = await auth(req);
   const HEAD_SCREEN = { clients: 'masters', models: 'masters', stages: 'masters', employees: 'hr', attendance: 'hr', payroll: 'hr', sinv: 'invoices', store: 'fabric', 'store-transfer': 'fabric', orders: 'fabric', outs: 'fabric', receipts: 'fabric', rolls: 'fabric', cuts: 'fabric', prod: 'fabric', deliveries: 'fabric', invoices: 'fabric', unbilled: 'fabric', payments: 'accounts', accounts: 'accounts', 'acct-statement': 'accounts', inv: 'inventory', gl: 'accounting', gl2: 'accounting', expenses: 'tools', profit: 'tools', aging: 'tools', reports: 'tools' };
   const screenKey = HEAD_SCREEN[head];
@@ -603,5 +606,5 @@ C.initDb().then(async (n) => {
   catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
   try { await C.db().query('ALTER TABLE users ADD COLUMN perms TEXT NULL'); }
   catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
-  await WB.migrate(C.db()); ready = true; console.log('db ready', n);
+  await WB.migrate(C.db()); ready = true; if (DEMO) DEMO.start(); console.log('db ready', n);
 }).catch((e) => { startErr = e; console.error('db init failed', e.message); });
