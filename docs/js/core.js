@@ -52,6 +52,22 @@ function applyTheme(k) {
 }
 applyTheme((() => { try { return localStorage.getItem('cmt_theme'); } catch (e) { return null; } })() || 'atelier');
 
+/* ---------- inner layouts (per device, mirrored to settings) ---------- */
+const LAYOUTS = [
+  { k: 'classic', name: 'القائمة العلوية (الأصلي)' },
+  { k: 'side', name: 'القائمة الجانبية الدائمة' },
+  { k: 'compact', name: 'المضغوط السريع' },
+];
+function applyLayout(k) {
+  const lay = LAYOUTS.some(x => x.k === k) ? k : 'classic';
+  MZ.layout = lay;
+  try { localStorage.setItem('cmt_layout', lay); } catch (e) { }
+  if (!document.body) return;
+  document.body.classList.toggle('lay-side', lay === 'side');
+  document.body.classList.toggle('lay-compact', lay === 'compact');
+}
+applyLayout((() => { try { return localStorage.getItem('cmt_layout'); } catch (e) { return null; } })() || 'classic');
+
 /* ---------- interface font prefs (per device) ---------- */
 const UI_FONTS = [
   ['', 'الافتراضي (خط النظام)'],
