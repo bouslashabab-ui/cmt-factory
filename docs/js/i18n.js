@@ -1257,7 +1257,7 @@
     'كود القصة': 'Order code',
     'إجمالي المتبقي على العملاء': 'Total outstanding from customers',
     'أكثر من 60 يوماً': 'Over 60 days',
-    'تُحسب بتوزيع المقبوضات على أقدم أوامر القص أولاً، ثم يُوزَّع المتبقي حسب عمر كل أمر من تاريخه.': 'Computed by applying receipts to the oldest cutting orders first, then distributing the remainder by each order\'s age from its date.',
+    'تُحسب بتوزيع المقبوضات على أقدم الفواتير أولاً، ثم يُوزَّع المتبقي حسب عمر كل فاتورة من تاريخها.': 'Computed by applying payments to the oldest invoices first, then distributing the remainder by each invoice\'s age from its date.',
     '0-30 يوم': '0-30 days',
     'أقدم دين (يوم)': 'Oldest debt (days)',
     'رصيد دائن': 'Credit balance',
