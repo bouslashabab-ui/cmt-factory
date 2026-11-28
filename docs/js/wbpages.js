@@ -179,7 +179,7 @@ P.payroll = async () => {
 };
 
 /* ---------- الرئيسية ---------- */
-P.home = async () => {
+P.home_legacy = async () => {
   const [st, od, ac] = await Promise.all([GET('/store'), GET('/orders'), GET('/accounts')]);
   const sum = (a, k) => a.reduce((x, r) => x + Number(r[k] || 0), 0);
   const step = (n, t, key, sub) => h('button', { class: 'btn', style: { padding: '12px 16px', margin: '4px' }, onclick: () => openPage(key) }, h('b', null, n + '. ' + t), h('div', { style: { fontSize: '11px', opacity: .8 } }, sub));
