@@ -365,11 +365,24 @@ P.settings = async () => {
   }
   return h('div', null, pageHead('الإعدادات'), h('div', { class: 'panel' }, h('div', { class: 'pb' }, f.el, btn('💾 حفظ', async () => { await PUT('/settings', f.get()); Object.assign(MZ.settings, f.get()); toast('تم الحفظ'); }, 'pri'), ' ', btn('🔑 تغيير كلمة مروري', pw))), ltPanel, langPanel, fontPanel, resetPanel);
 };
+const SCREEN_PERMS = [['masters', 'الملفات الأساسية'], ['hr', 'الموظفون والمرتبات'], ['invoices', 'الفواتير'], ['fabric', 'القماش والقص والإنتاج'], ['accounts', 'حسابات العملاء'], ['inventory', 'المخزون'], ['accounting', 'المحاسبة'], ['tools', 'المساعد والتقارير']];
 P.users = async () => {
   const root = h('div');
+  const permsEdit = (r) => {
+    if (r.role === 'admin') return toast('مدير النظام يرى كل الشاشات دائمًا');
+    const cur = new Set(r.perms || []);
+    const boxes = SCREEN_PERMS.map(([k, t]) => { const cb = h('input', { type: 'checkbox' }); cb.checked = cur.includes ? cur.includes(k) : cur.has(k); return { k, cb, el: h('label', { style: 'display:flex;align-items:center;gap:6px;padding:6px 4px' }, cb, t) }; });
+    const setAll = (v) => boxes.forEach(b => { b.cb.checked = v; });
+    const body = h('div', null,
+      h('div', { style: 'display:flex;gap:8px;margin-bottom:10px' }, btn('كل الشاشات', () => setAll(true), 'sm'), btn('مسح الكل', () => setAll(false), 'sm')),
+      h('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:4px' }, boxes.map(b => b.el)),
+      h('div', { class: 'muted', style: 'margin-top:10px;font-size:12px' }, 'الدور يحدد القراءة/الكتابة، وهذه الخيارات تحدد الشاشات التي تظهر للمستخدم.'));
+    modal('صلاحيات الشاشات: ' + (r.name || r.username), body, [{ t: 'حفظ', kind: 'pri', fn: async (c) => { const sel = boxes.filter(b => b.cb.checked).map(b => b.k); await PUT('/users/' + r.id, { perms: sel }); c(); toast('تم الحفظ'); render(); } }, { t: 'إلغاء', fn: (c) => c() }]);
+  };
+  const permTag = (r) => r.role === 'admin' ? tag('كل الشاشات', 1) : tag((r.perms || []).length + ' / ' + SCREEN_PERMS.length, 0);
   const render = async () => {
     const rows = await GET('/users'); root.innerHTML = '';
-    root.append(pageHead('المستخدمون', btn('➕ مستخدم', () => edit(null), 'pri')), table([{ t: 'اسم المستخدم', k: 'username' }, { t: 'الاسم', k: 'name' }, { t: 'الدور', f: r => ROLE_AR[r.role] }, { t: 'الحالة', f: activeTag }, { t: '', f: r => btn('تعديل', () => edit(r), 'sm') }], rows));
+    root.append(pageHead('المستخدمون', btn('➕ مستخدم', () => edit(null), 'pri')), table([{ t: 'اسم المستخدم', k: 'username' }, { t: 'الاسم', k: 'name' }, { t: 'الدور', f: r => ROLE_AR[r.role] }, { t: 'الشاشات', f: permTag }, { t: 'الحالة', f: activeTag }, { t: '', f: r => h('span', null, btn('تعديل', () => edit(r), 'sm'), ' ', r.role === 'admin' ? null : btn('الصلاحيات', () => permsEdit(r), 'sm')) }], rows));
   };
   const edit = (r) => {
     const roles = Object.entries(ROLE_AR).map(([v, t]) => ({ v, t }));
