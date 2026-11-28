@@ -488,7 +488,7 @@ async function route(req, url, body) {
   const parts = url.pathname.replace(/^\/api\/?/, '').split('/').filter(Boolean);
   const q = Object.fromEntries(url.searchParams); const m = req.method; const head = parts[0];
   if (head === 'health') return { ok: true, t: Date.now(), v: 61 };
-  if (head === 'status') { const [r] = await C.db().query('SELECT COUNT(*) c FROM users'); return { setup_needed: r[0].c === 0 }; }
+  if (head === 'status') { const [r] = await C.db().query('SELECT COUNT(*) c FROM users'); let lt = null; try { const [t] = await C.db().query("SELECT v FROM settings WHERE k='login_theme'"); lt = t[0] ? t[0].v : null; } catch (e) {} return { setup_needed: r[0].c === 0, login_theme: lt }; }
   if (head === 'setup' && m === 'POST') { await setup(body); return { ok: true }; }
   if (head === 'login' && m === 'POST') return login(body, req.socket.remoteAddress || 'ip');
   if (head === 'device-login' && m === 'POST') return deviceLogin(body, req.socket.remoteAddress || 'ip');
