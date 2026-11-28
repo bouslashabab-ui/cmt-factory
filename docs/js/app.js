@@ -102,6 +102,60 @@ function buildTopnav(nm) {
   return [bar, panel];
 }
 
+/* ---------- notifications: assistant alerts + update notice ---------- */
+const NOTIF = {
+  items: [], updateAvail: false, timer: null, build: null, open: false,
+  GOTO: { 'القص': 'orders', 'التسليم': 'orders', 'التكلفة': 'orders', 'المخزن': 'store', 'الخارج': 'outs', 'الحسابات': 'aging', 'الإنتاج': 'stages', 'الرواتب': 'payroll', 'الحضور': 'attendance', 'تكرار': null },
+  seen() { try { return JSON.parse(localStorage.getItem('cmt_notif_seen') || '[]'); } catch (e) { return []; } },
+  key(x) { return x.level + '|' + x.area + '|' + x.msg; },
+  unreadList() { const s = this.seen(); return this.items.filter(x => s.indexOf(this.key(x)) === -1); },
+  markAll() { const s = this.seen(); this.items.forEach(x => { const k = this.key(x); if (s.indexOf(k) === -1) s.push(k); }); try { localStorage.setItem('cmt_notif_seen', JSON.stringify(s.slice(-300))); } catch (e) {} this.paint(); this.render(); },
+  async poll() {
+    let a = null;
+    try { a = window.assistCount ? await window.assistCount() : await GET('/assistant'); } catch (e) { a = null; }
+    if (a && Array.isArray(a.items)) this.items = a.items;
+    try {
+      const r = await fetch('build.txt?cb=' + Date.now());
+      if (r.ok) { const b = (await r.text()).trim(); if (!this.build) this.build = b; else if (b && b !== this.build) this.updateAvail = true; }
+    } catch (e) {}
+    this.paint(); if (this.open) this.render();
+  },
+  paint() {
+    const n = this.unreadList().length + (this.updateAvail ? 1 : 0);
+    document.querySelectorAll('.ntf-bell .bdg').forEach(e => e.remove());
+    const bell = document.querySelector('.ntf-bell');
+    if (bell && n) bell.append(h('span', { class: 'bdg' }, n));
+    let ban = document.querySelector('.ntf-banner');
+    if (this.updateAvail && !ban && bell) {
+      ban = h('div', { class: 'ntf-banner' }, h('span', null, '🔄 يتوفر تحديث جديد للبرنامج. أعد تحميل الصفحة للحصول على آخر نسخة.'), btn('إعادة التحميل', () => location.reload(), 'sm pri'));
+      const main = document.querySelector('.main'); if (main) main.insertBefore(ban, main.children[1] || null);
+    }
+  },
+  toggle() { this.open = !this.open; const p = document.querySelector('.ntf-panel'); if (p) p.remove(); if (this.open) this.render(); },
+  render() {
+    document.querySelectorAll('.ntf-panel').forEach(e => e.remove());
+    const wrap = document.querySelector('.ntf-wrap'); if (!wrap) return;
+    const un = this.unreadList(); const rows = [];
+    if (this.updateAvail) rows.push(h('div', { class: 'ntf-row ntf-upd', onclick: () => location.reload() }, h('i', null, '🔄'), h('div', null, h('b', null, 'يتوفر تحديث جديد'), h('small', null, 'اضغط لإعادة التحميل الآن'))));
+    if (!this.items.length && !this.updateAvail) rows.push(h('div', { class: 'ntf-empty' }, '✅ لا توجد إشعارات الآن'));
+    this.items.slice(0, 40).forEach(x => {
+      const seen = un.indexOf(x) === -1;
+      rows.push(h('div', { class: 'ntf-row' + (seen ? ' seen' : ''), onclick: () => { const k = NOTIF.GOTO[x.area]; if (k) { openPage(k); NOTIF.toggle(); } } },
+        h('span', { class: 'tag ' + ({ err: 'bad', warn: 'warn' }[x.level] || '') }, ({ err: 'خطأ', warn: 'تنبيه' }[x.level] || 'معلومة')),
+        h('div', null, h('small', null, x.area), h('div', null, x.msg))));
+    });
+    const panel = h('div', { class: 'ntf-panel' },
+      h('div', { class: 'ntf-head' }, h('b', null, '🔔 الإشعارات'), btn('تحديد الكل كمقروء', () => NOTIF.markAll(), 'sm')),
+      h('div', { class: 'ntf-list' }, rows));
+    wrap.append(panel);
+    if (!this._out) { this._out = true; document.addEventListener('click', (e) => { if (NOTIF.open && !e.target.closest('.ntf-wrap')) NOTIF.toggle(); }); }
+  },
+  init() { this.poll(); if (!this.timer) this.timer = setInterval(() => this.poll(), 5 * 60 * 1000); },
+};
+function notifBell() {
+  return h('span', { class: 'ntf-wrap' }, h('button', { class: 'tbn ntf-bell', type: 'button', title: 'الإشعارات', onclick: (e) => { e.stopPropagation(); NOTIF.toggle(); } }, '🔔'));
+}
+
 function shell() {
   const app = $('#app'); app.innerHTML = '';
   const adminOk = (i) => (i[3] !== 'admin' || MZ.user.role === 'admin') && canSee(i[2]);
@@ -117,14 +171,14 @@ function shell() {
     h('div', { class: 'me' }, h('div', { class: 'av' }, nm.trim().charAt(0)), h('div', null, nm, h('small', null, ROLE_AR[MZ.user.role] || '')), muteBtn(), h('button', { onclick: logout }, 'خروج')));
   const main = h('div', { class: 'main' },
     h('div', { class: 'topbar' }, h('button', { class: 'burger', onclick: () => side.classList.toggle('open') }, '☰'), h('div', { class: 'tabs', id: 'tabs' }),
-      h('button', { class: 'tbn', onclick: themePicker, title: 'سمات النظام' }, '🎨 السمات'), h('button', { class: 'tbn lang-btn', type: 'button', onclick: () => I18N_SET(I18N.lang === 'en' ? 'ar' : 'en') }, '🌐 EN'), h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today today-plain' }, new Date().toLocaleDateString(window.MZ_LOC ? MZ_LOC() : 'ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
+      notifBell(), h('button', { class: 'tbn', onclick: themePicker, title: 'سمات النظام' }, '🎨 السمات'), h('button', { class: 'tbn lang-btn', type: 'button', onclick: () => I18N_SET(I18N.lang === 'en' ? 'ar' : 'en') }, '🌐 EN'), h('button', { class: 'tbn', onclick: () => printPage() }, '🖨 طباعة'), h('button', { class: 'tbn', onclick: () => exportChooser() }, '⬇ تصدير'), h('div', { class: 'today today-plain' }, new Date().toLocaleDateString(window.MZ_LOC ? MZ_LOC() : 'ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))),
     h('div', { id: 'desk' }));
   app.append(...buildTopnav(nm), side, main);
   requestAnimationFrame(() => window.__tnLayout && window.__tnLayout());
   const sync = () => document.querySelectorAll('.nv').forEach(n => n.classList.toggle('on', n.getAttribute('data-k') === MZ.active));
   new MutationObserver(sync).observe($('#tabs'), { subtree: true, childList: true, attributes: true });
   openWin('home', 'الرئيسية', () => MZ.pages.home());
-  sync(); setTimeout(() => assistCount(), 1500);
+  sync(); setTimeout(() => { assistCount(); NOTIF.init(); }, 1500);
   const hm = (location.hash || '').match(/^#p=([A-Za-z0-9_]+)/);
   if (hm && hm[1] !== 'home') setTimeout(() => openPage(hm[1]), 400);
   if (!window.__hashBound) { window.__hashBound = true; window.addEventListener('hashchange', () => { const mm = (location.hash || '').match(/^#p=([A-Za-z0-9_]+)/); if (mm) openPage(mm[1]); }); }
