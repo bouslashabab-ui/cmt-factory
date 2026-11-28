@@ -910,3 +910,8 @@ body.lay-compact .panel .pb,body.lay-compact .pb{padding:10px 14px}
 .ai-cancelled{color:var(--mut);margin-top:4px}
 .ai-draft-text{background:var(--soft);border:1px dashed var(--bd);border-radius:10px;padding:10px 12px;white-space:pre-wrap;line-height:1.9}
 .ai-open{margin-top:8px}
+
+/* KPI value shrink-to-fit: long amounts scale with the card and wrap instead of clipping */
+.kpi{container-type:inline-size}
+.kpi b{display:block;font-size:24px;white-space:normal;overflow-wrap:anywhere;line-height:1.15}
+.kpi b{font-size:clamp(16px,11cqi,30px)}
