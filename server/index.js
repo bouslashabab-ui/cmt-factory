@@ -69,7 +69,43 @@ async function login(b, ip) {
   if (!u || !u.active || !C.checkPw(String(b.password || ''), u.pass_hash)) throw new HttpError(401, 'اسم المستخدم أو كلمة المرور غير صحيحة');
   attempts.delete(ip + '|' + username);
   await C.audit({ id: u.id, username }, 'login', 'user', u.id);
-  return { token: C.sign({ uid: u.id, exp: Date.now() + 12 * 3600 * 1000 }), user: pub(u) };
+  const out = { token: C.sign({ uid: u.id, exp: Date.now() + 12 * 3600 * 1000 }), user: pub(u) };
+  if (b.remember === true || b.remember === 1 || b.remember === 'true') {
+    const crypto = require('crypto');
+    const raw = crypto.randomBytes(32).toString('base64url');
+    const hash = crypto.createHash('sha256').update(raw).digest('hex');
+    try { await C.db().query('DELETE FROM device_tokens WHERE expires_at < ?', [Date.now()]); } catch (e) { /* table may lag a deploy */ }
+    await C.db().query('INSERT INTO device_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)', [u.id, hash, Date.now() + 180 * 24 * 3600 * 1000]);
+    out.device_token = raw;
+  }
+  return out;
+}
+
+// ---------- remember-me device tokens ----------
+async function deviceLogin(b, ip) {
+  throttle(ip + '|dev');
+  const raw = String(b.device_token || '');
+  if (raw.length < 20 || raw.length > 200) throw new HttpError(401, 'الجهاز المحفوظ لم يعد صالحًا، سجل الدخول بكلمة المرور');
+  const crypto = require('crypto');
+  const hash = crypto.createHash('sha256').update(raw).digest('hex');
+  const [r] = await C.db().query('SELECT u.*, d.id AS did, d.expires_at AS dexp FROM device_tokens d JOIN users u ON u.id=d.user_id WHERE d.token_hash=?', [hash]);
+  const row = r[0];
+  if (!row || !row.active || +row.dexp < Date.now()) {
+    if (row) { try { await C.db().query('DELETE FROM device_tokens WHERE id=?', [row.did]); } catch (e) {} }
+    throw new HttpError(401, 'الجهاز المحفوظ لم يعد صالحًا، سجل الدخول بكلمة المرور');
+  }
+  try { await C.db().query('UPDATE device_tokens SET last_used=NOW() WHERE id=?', [row.did]); } catch (e) {}
+  await C.audit({ id: row.id, username: row.username }, 'device-login', 'user', row.id);
+  return { token: C.sign({ uid: row.id, exp: Date.now() + 12 * 3600 * 1000 }), user: pub(row) };
+}
+async function deviceForget(b) {
+  const raw = String(b.device_token || '');
+  if (raw.length >= 20 && raw.length <= 200) {
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(raw).digest('hex');
+    try { await C.db().query('DELETE FROM device_tokens WHERE token_hash=?', [hash]); } catch (e) {}
+  }
+  return { ok: true };
 }
 
 
@@ -451,10 +487,12 @@ async function reports(kind, q) {
 async function route(req, url, body) {
   const parts = url.pathname.replace(/^\/api\/?/, '').split('/').filter(Boolean);
   const q = Object.fromEntries(url.searchParams); const m = req.method; const head = parts[0];
-  if (head === 'health') return { ok: true, t: Date.now() };
+  if (head === 'health') return { ok: true, t: Date.now(), v: 60 };
   if (head === 'status') { const [r] = await C.db().query('SELECT COUNT(*) c FROM users'); return { setup_needed: r[0].c === 0 }; }
   if (head === 'setup' && m === 'POST') { await setup(body); return { ok: true }; }
   if (head === 'login' && m === 'POST') return login(body, req.socket.remoteAddress || 'ip');
+  if (head === 'device-login' && m === 'POST') return deviceLogin(body, req.socket.remoteAddress || 'ip');
+  if (head === 'device-forget' && m === 'POST') return deviceForget(body);
   if (head === 'forgot' && m === 'POST') return forgot(body, req.socket.remoteAddress || 'ip');
   const u = await auth(req);
   const HEAD_SCREEN = { clients: 'masters', models: 'masters', stages: 'masters', employees: 'hr', attendance: 'hr', payroll: 'hr', sinv: 'invoices', store: 'fabric', 'store-transfer': 'fabric', orders: 'fabric', outs: 'fabric', receipts: 'fabric', rolls: 'fabric', cuts: 'fabric', prod: 'fabric', deliveries: 'fabric', invoices: 'fabric', unbilled: 'fabric', payments: 'accounts', accounts: 'accounts', 'acct-statement': 'accounts', inv: 'inventory', gl: 'accounting', gl2: 'accounting', expenses: 'tools', profit: 'tools', aging: 'tools', reports: 'tools' };
@@ -537,7 +575,7 @@ const server = http.createServer(async (req, res) => {
   const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', ...CORS }); res.end(JSON.stringify(obj)); };
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
   const url = new URL(req.url, 'http://x');
-  if (url.pathname === '/' || url.pathname === '/api/health') return send(200, { ok: true, ready, error: startErr ? String(startErr.message || startErr) : undefined });
+  if (url.pathname === '/' || url.pathname === '/api/health') return send(200, { ok: true, ready, v: 60, error: startErr ? String(startErr.message || startErr) : undefined });
   if (!ready) return send(503, { error: startErr ? 'تعذر الاتصال بقاعدة البيانات' : 'الخادم يبدأ التشغيل، حاول بعد لحظات' });
   let raw = '';
   req.on('data', (c) => { raw += c; if (raw.length > 2e6) req.destroy(); });
