@@ -90,3 +90,5 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(
 .sclock .ck-bar{background:linear-gradient(90deg,var(--lime2),#bfe0f4)}
 .today.sclock .ck-t{color:var(--teal)}.today.sclock .ck-d{color:#6d8aa0}
 .seg button.on{color:var(--teal)}
+/* topnav active contrast on the deep strip */
+.tn-sec.on{background:rgba(47,143,214,.4);color:#eaf7ff}
