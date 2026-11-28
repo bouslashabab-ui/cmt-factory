@@ -21,7 +21,13 @@ const SIMPLE_USEDCOL = { models: { cuts: 'model_id' } };
 const DEFAULT_STAGES = [['خياطة', 1], ['كي', 2], ['فحص وتشطيب', 3], ['تعبئة', 4]];
 
 const THEMES = ['atelier', 'classic', 'oasis'];
-const pub = (u) => ({ id: u.id, username: u.username, name: u.name, role: u.role, theme: u.theme || null, perms: u.role === 'admin' ? ['*'] : (u.role === 'staff' ? ['write'] : []) });
+const ALL_SCREENS = ['masters', 'hr', 'invoices', 'fabric', 'accounts', 'inventory', 'accounting', 'tools'];
+const screenPerms = (u) => {
+  if (u.role === 'admin') return ['*'];
+  if (u.perms) { try { const a = JSON.parse(u.perms); if (Array.isArray(a)) return a.filter(k => ALL_SCREENS.includes(k)); } catch (e) { /* fall through */ } }
+  return ALL_SCREENS.slice();
+};
+const pub = (u) => ({ id: u.id, username: u.username, name: u.name, role: u.role, theme: u.theme || null, perms: screenPerms(u).concat(u.role === 'viewer' ? [] : ['write']) });
 async function auth(req) {
   const h = req.headers.authorization || '';
   const p = C.verify(h.startsWith('Bearer ') ? h.slice(7) : '');
@@ -419,6 +425,9 @@ async function route(req, url, body) {
   if (head === 'setup' && m === 'POST') { await setup(body); return { ok: true }; }
   if (head === 'login' && m === 'POST') return login(body, req.socket.remoteAddress || 'ip');
   const u = await auth(req);
+  const HEAD_SCREEN = { clients: 'masters', models: 'masters', stages: 'masters', employees: 'hr', attendance: 'hr', payroll: 'hr', sinv: 'invoices', store: 'fabric', 'store-transfer': 'fabric', orders: 'fabric', outs: 'fabric', receipts: 'fabric', rolls: 'fabric', cuts: 'fabric', prod: 'fabric', deliveries: 'fabric', invoices: 'fabric', unbilled: 'fabric', payments: 'accounts', accounts: 'accounts', 'acct-statement': 'accounts', inv: 'inventory', gl: 'accounting', gl2: 'accounting', expenses: 'tools', profit: 'tools', aging: 'tools', reports: 'tools' };
+  const screenKey = HEAD_SCREEN[head];
+  if (screenKey && !u.perms.includes('*') && !u.perms.includes(screenKey)) throw new HttpError(403, 'لا تملك صلاحية الوصول لهذه الشاشة');
   const id = parts[1] && /^\d+$/.test(parts[1]) ? +parts[1] : null;
   await require('./wb2').lockCheck(head, req, id, body);
   if (head === 'me') return { user: pub(u.raw), settings: await C.getSettings() };
@@ -441,19 +450,21 @@ async function route(req, url, body) {
   }
   if (head === 'users') {
     needAdmin(u);
-    if (m === 'GET') return Q('SELECT id,username,name,role,active,created_at FROM users ORDER BY id');
+    if (m === 'GET') { const us = await Q('SELECT * FROM users ORDER BY id'); return us.map(x => ({ id: x.id, username: x.username, name: x.name, role: x.role, active: x.active, created_at: x.created_at, perms: x.role === 'admin' ? ['*'] : screenPerms(x), custom_perms: !!x.perms })); }
     if (m === 'POST') {
       const un = String(body.username || '').trim().toLowerCase();
       if (!/^[a-z0-9_.-]{3,40}$/.test(un)) throw bad('اسم المستخدم غير صحيح');
       if (String(body.password || '').length < 8) throw bad('كلمة المرور 8 أحرف على الأقل');
       const role = ['admin', 'staff', 'viewer'].includes(body.role) ? body.role : 'staff';
-      const [r] = await C.db().query('INSERT INTO users(username,name,pass_hash,role) VALUES(?,?,?,?)', [un, str(body.name, 120) || un, C.hashPw(body.password), role]);
+      const pa = Array.isArray(body.perms) ? JSON.stringify(body.perms.filter(k => ALL_SCREENS.includes(k))) : null;
+      const [r] = await C.db().query('INSERT INTO users(username,name,pass_hash,role,perms) VALUES(?,?,?,?,?)', [un, str(body.name, 120) || un, C.hashPw(body.password), role, pa]);
       await C.audit(u, 'create', 'user', r.insertId, un); return { id: r.insertId };
     }
     if (m === 'PUT' && id) {
       const f = [], p = [];
       if (body.name !== undefined) { f.push('name=?'); p.push(str(body.name, 120)); }
       if (body.role !== undefined) { if (!['admin', 'staff', 'viewer'].includes(body.role)) throw bad('دور غير صحيح'); if (id === u.id && body.role !== 'admin') throw bad('لا يمكنك تغيير دور حسابك'); f.push('role=?'); p.push(body.role); }
+      if (body.perms !== undefined) { if (id === u.id) throw bad('لا يمكنك تغيير صلاحيات حسابك'); p.push(body.perms === null ? null : JSON.stringify((Array.isArray(body.perms) ? body.perms : []).filter(k => ALL_SCREENS.includes(k)))); f.push('perms=?'); }
       if (body.active !== undefined) { if (id === u.id && !+body.active) throw bad('لا يمكنك إيقاف حسابك'); f.push('active=?'); p.push(+body.active ? 1 : 0); }
       if (body.password) { if (String(body.password).length < 8) throw bad('كلمة المرور 8 أحرف على الأقل'); f.push('pass_hash=?'); p.push(C.hashPw(body.password)); }
       if (f.length) await C.db().query('UPDATE users SET ' + f.join(',') + ' WHERE id=?', [...p, id]);
@@ -515,6 +526,8 @@ const server = http.createServer(async (req, res) => {
 server.listen(process.env.PORT || 8080, () => console.log('listening'));
 C.initDb().then(async (n) => {
   try { await C.db().query('ALTER TABLE users ADD COLUMN theme VARCHAR(40) NULL'); }
+  catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+  try { await C.db().query('ALTER TABLE users ADD COLUMN perms TEXT NULL'); }
   catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
   await WB.migrate(C.db()); ready = true; console.log('db ready', n);
 }).catch((e) => { startErr = e; console.error('db init failed', e.message); });
