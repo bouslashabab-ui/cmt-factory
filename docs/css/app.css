@@ -850,3 +850,6 @@ body.lay-compact .panel .pb,body.lay-compact .pb{padding:10px 14px}
 .layp-p.lay-classic{background:linear-gradient(180deg,#0f1437 0 20%,#eef1fa 20% 100%)}
 .layp-p.lay-side{background:linear-gradient(270deg,#0f1437 0 30%,#eef1fa 30% 100%)}
 .layp-p.lay-compact{background:linear-gradient(180deg,#0f1437 0 13%,#d8deef 13% 100%)}
+/* remember-me row on the login card */
+.lg-remember{display:flex;align-items:center;gap:8px;margin:2px 0 10px;font-size:13px;color:var(--mut);cursor:pointer}
+.lg-remember .chk{width:16px;height:16px;accent-color:var(--teal)}
