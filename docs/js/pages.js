@@ -385,11 +385,11 @@ P.users = async () => {
   const permTag = (r) => r.role === 'admin' ? tag('كل الشاشات', 1) : tag((r.perms || []).length + ' / ' + SCREEN_PERMS.length, 0);
   const render = async () => {
     const rows = await GET('/users'); root.innerHTML = '';
-    root.append(pageHead('المستخدمون', btn('➕ مستخدم', () => edit(null), 'pri')), table([{ t: 'اسم المستخدم', k: 'username' }, { t: 'الاسم', k: 'name' }, { t: 'الدور', f: r => ROLE_AR[r.role] }, { t: 'الشاشات', f: permTag }, { t: 'الحالة', f: activeTag }, { t: '', f: r => h('span', null, btn('تعديل', () => edit(r), 'sm'), ' ', r.role === 'admin' ? null : btn('الصلاحيات', () => permsEdit(r), 'sm')) }], rows));
+    root.append(pageHead('المستخدمون', btn('➕ مستخدم', () => edit(null), 'pri')), table([{ t: 'اسم المستخدم', k: 'username' }, { t: 'الاسم', k: 'name' }, { t: 'البريد الإلكتروني', k: 'email' }, { t: 'الدور', f: r => ROLE_AR[r.role] }, { t: 'الشاشات', f: permTag }, { t: 'الحالة', f: activeTag }, { t: '', f: r => h('span', null, btn('تعديل', () => edit(r), 'sm'), ' ', r.role === 'admin' ? null : btn('الصلاحيات', () => permsEdit(r), 'sm')) }], rows));
   };
   const edit = (r) => {
     const roles = Object.entries(ROLE_AR).map(([v, t]) => ({ v, t }));
-    const f = formGrid([...(r ? [] : [{ k: 'username', t: 'اسم المستخدم', req: 1 }]), { k: 'name', t: 'الاسم' }, { k: 'role', t: 'الدور', type: 'select', options: roles, def: 'staff' }, { k: 'password', t: r ? 'كلمة مرور جديدة (اختياري)' : 'كلمة المرور (8 أحرف)', type: 'password' }, ...(r ? [{ k: 'active', t: 'نشط', type: 'check' }] : [])], r || {});
+    const f = formGrid([...(r ? [] : [{ k: 'username', t: 'اسم المستخدم', req: 1 }]), { k: 'name', t: 'الاسم' }, { k: 'email', t: 'البريد الإلكتروني' }, { k: 'role', t: 'الدور', type: 'select', options: roles, def: 'staff' }, { k: 'password', t: r ? 'كلمة مرور جديدة (اختياري)' : 'كلمة المرور (8 أحرف)', type: 'password' }, ...(r ? [{ k: 'active', t: 'نشط', type: 'check' }] : [])], r || {});
     modal(r ? 'تعديل مستخدم' : 'مستخدم جديد', f.el, [{ t: 'حفظ', kind: 'pri', fn: async (c) => { const b = f.get(); if (!b.password) delete b.password; if (r) await PUT('/users/' + r.id, b); else await POST('/users', b); c(); toast('تم الحفظ'); render(); } }]);
   };
   await render(); return root;
