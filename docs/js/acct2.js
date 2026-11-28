@@ -20,11 +20,11 @@
     show('direct');
     const sum = h('div', { class: 'panel' }, h('div', { class: 'ph' }, 'ملخص التغير في النقدية'), table([{ t: 'البند', f: x => x[0] }, { t: 'المبلغ', cls: 'num', f: x => x[1] }], [
       ['النقدية وما في حكمها أول الفترة (' + r.from + ')', money(d.opening)], ['صافي التدفق التشغيلي', money(D.totals.operating)], ['صافي التدفق الاستثماري', money(D.totals.investing)], ['صافي التدفق التمويلي', money(D.totals.financing)], ['صافي التغير في النقدية', money(d.net_change)]], { foot: ['النقدية وما في حكمها آخر الفترة (' + r.to + ')', money(d.closing)] }));
-    if (!d.check) d.check = {}; const okTag = h('span', { class: 'okb ' + (d.check.direct_ok && d.check.indirect_ok ? 'ok' : 'bad') }, d.check.direct_ok && d.check.indirect_ok ? '✔ الطريقتان تطابقان رصيد الصندوق والبنك' : '✖ يوجد فرق: مباشر ' + fmt(d.check.diff_direct) + ' | غير مباشر ' + fmt(d.check.diff_indirect));
+    if (!d.check) d.check = {}; const okTag = h('span', { class: 'okb ' + (d.check.direct_ok && d.check.indirect_ok ? 'ok' : 'bad') }, d.check.direct_ok && d.check.indirect_ok ? '✔ الطريقتان تطابقان رصيد الصندوق والبنك' : h('span', null, '✖ يوجد فرق: مباشر ', fmt(d.check.diff_direct), ' | غير مباشر ', fmt(d.check.diff_indirect)));
     return h('div', null, pageHead('💧 قائمة التدفقات النقدية', btn('🖨 طباعة', () => printPage()), btn('⬇ تصدير', () => exportChooser())), rangeBar('cash_flow'),
       h('div', { class: 'kpis' }, VZ.kpiD('نقدية أول الفترة', d.opening, p.opening), VZ.kpiD('إجمالي المقبوضات', inflow, pin, true), VZ.kpiD('إجمالي المدفوعات', outflow, pout, false), VZ.kpiD('نقدية آخر الفترة', d.closing, p.closing, true)),
       VZ.bars('المقبوضات والمدفوعات شهريًا', d.months.map(m => ({ l: VZ.monthLabel(m.month), v: { in: m.inflow, out: m.outflow } })), [{ k: 'in', label: 'مقبوضات', color: '#3547e0' }, { k: 'out', label: 'مدفوعات', color: '#f0457a' }]),
-      h('div', { class: 'panel' }, h('div', { class: 'pb' }, okTag, ' ', h('small', { style: { color: 'var(--mut)' } }, 'النقدية = الصندوق (1100) + البنك (1110). مقارنة الفترة السابقة: ' + pr.from + ' إلى ' + pr.to))), seg, box, sum);
+      h('div', { class: 'panel' }, h('div', { class: 'pb' }, okTag, ' ', h('small', { style: { color: 'var(--mut)' } }, 'النقدية = الصندوق (1100) + البنك (1110). مقارنة الفترة السابقة: ', pr.from, ' إلى ', pr.to))), seg, box, sum);
   };
   /* ---------- bank reconciliation: match GL bank account 1110 with the bank statement ---------- */
   const r2c = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
