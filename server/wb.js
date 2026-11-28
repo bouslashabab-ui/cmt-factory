@@ -165,7 +165,7 @@ async function outsApi(req, u, id, body) {
     return rows;
   }
   needWrite(u);
-  if (m === 'DELETE' && id) { await C.db().query('DELETE FROM outs WHERE id=?', [id]); return { ok: true }; }
+  if (m === 'DELETE' && id) { await C.db().query('DELETE FROM outs WHERE id=?', [id]); await C.audit(u, 'delete', 'out', id); return { ok: true }; }
   const o = { date: isDate(body.date) ? body.date : null, cut_code: str(body.cut_code, 60, 'رقم أمر القص', true), part: str(body.part, 160), party: str(body.party, 120), sent: Math.round(num0(body.sent, 'الكمية المرسلة')), received: Math.round(num0(body.received, 'الكمية المستلمة')), notes: str(body.notes, 255) };
   if (o.received > o.sent) throw bad('الكمية المستلمة أكبر من المرسلة');
   const k = Object.keys(o);
@@ -200,7 +200,7 @@ async function empApi(req, u, id, body) {
   const m = req.method;
   if (m === 'GET') return Q('SELECT * FROM employees ORDER BY id');
   needWrite(u);
-  if (m === 'DELETE' && id) { await C.db().query('DELETE FROM attendance WHERE emp_id=?', [id]); await C.db().query('DELETE FROM payroll_inputs WHERE emp_id=?', [id]); await C.db().query('DELETE FROM employees WHERE id=?', [id]); return { ok: true }; }
+  if (m === 'DELETE' && id) { const [em] = await Q('SELECT name FROM employees WHERE id=?', [id]); await C.db().query('DELETE FROM attendance WHERE emp_id=?', [id]); await C.db().query('DELETE FROM payroll_inputs WHERE emp_id=?', [id]); await C.db().query('DELETE FROM employees WHERE id=?', [id]); await C.audit(u, 'delete', 'employee', id, em && em.name); return { ok: true }; }
   const o = { code: str(body.code, 30, 'كود الموظف', true), name: str(body.name, 120, 'اسم الموظف', true), job: str(body.job, 80), salary: r2(num0(body.salary, 'الراتب')), active: body.active === 0 || body.active === '0' ? 0 : 1 };
   const k = Object.keys(o);
   if (m === 'POST') { const [r] = await C.db().query('INSERT INTO employees(' + k.join(',') + ') VALUES(' + k.map(() => '?').join(',') + ')', k.map(x => o[x])); await C.audit(u, 'create', 'employee', r.insertId, o.name); return { id: r.insertId }; }
