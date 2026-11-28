@@ -152,16 +152,19 @@ async function check(body) {
 }
 
 
-/* AI helper: Gemini free tier. Sends ONLY aggregated numbers (no client names, codes or prices per client). Key lives in env GEMINI_API_KEY. */
+/* AI helper: Gemini free tier. aiAsk sends ONLY aggregated numbers (no client names, codes or prices per client). Key lives in env GEMINI_API_KEY. */
+async function aiContext() {
+  const W_ = W(); const ords = await W_.ordList({}); const store = await W_.storeList({}); const a = await assistant(); const p = await profit();
+  const sum = (arr, f) => r2(arr.reduce((x, o) => x + nn(f(o)), 0));
+  const areas = {}; a.items.forEach(i => { const k = i.area + '/' + (i.level === 'err' ? 'خطأ' : i.level === 'warn' ? 'تنبيه' : 'معلومة'); areas[k] = (areas[k] || 0) + 1; });
+  return { عدد_أوامر_القص: ords.length, إجمالي_القطع: sum(ords, o => o.total), إجمالي_التكلفة_على_العملاء: sum(ords, o => o.cost_total), المسلّم: sum(ords, o => o.delivered), المتبقي_للتسليم: sum(ords, o => o.left), إجمالي_الهالك_كجم: sum(ords, o => o.waste), نسبة_الهالك_بالمئة_من_القماش_المحول: sum(ords, o => o.weight_in) > 0 ? r2(sum(ords, o => o.waste) / sum(ords, o => o.weight_in) * 100) : null, الوزن_المحول_كجم: sum(ords, o => o.weight_in), أصناف_المخزن: store.length, المصروفات: p.totals.expenses, الإيراد: p.totals.revenue, الربح: r2(p.totals.revenue - p.totals.expenses), تنبيهات_المساعد: a.counts, تفاصيل_التنبيهات_حسب_القسم: areas };
+}
 let aiHits = [];
 async function aiAsk(body) {
   const key = process.env.GEMINI_API_KEY; if (!key) return { error: 'المساعد الذكي غير مفعّل (لا يوجد مفتاح).' };
   const q = String((body && body.question) || '').trim().slice(0, 500); if (!q) return { error: 'اكتب سؤالك.' };
   const now = Date.now(); aiHits = aiHits.filter(t => now - t < 60000); if (aiHits.length >= 10) return { error: 'عدد كبير من الأسئلة، حاول بعد دقيقة.' }; aiHits.push(now);
-  const W_ = W(); const ords = await W_.ordList({}); const store = await W_.storeList({}); const a = await assistant(); const p = await profit();
-  const sum = (arr, f) => r2(arr.reduce((x, o) => x + nn(f(o)), 0));
-  const areas = {}; a.items.forEach(i => { const k = i.area + '/' + (i.level === 'err' ? 'خطأ' : i.level === 'warn' ? 'تنبيه' : 'معلومة'); areas[k] = (areas[k] || 0) + 1; });
-  const ctx = { عدد_أوامر_القص: ords.length, إجمالي_القطع: sum(ords, o => o.total), إجمالي_التكلفة_على_العملاء: sum(ords, o => o.cost_total), المسلّم: sum(ords, o => o.delivered), المتبقي_للتسليم: sum(ords, o => o.left), إجمالي_الهالك_كجم: sum(ords, o => o.waste), نسبة_الهالك_بالمئة_من_القماش_المحول: sum(ords, o => o.weight_in) > 0 ? r2(sum(ords, o => o.waste) / sum(ords, o => o.weight_in) * 100) : null, الوزن_المحول_كجم: sum(ords, o => o.weight_in), أصناف_المخزن: store.length, المصروفات: p.totals.expenses, الإيراد: p.totals.revenue, الربح: r2(p.totals.revenue - p.totals.expenses), تنبيهات_المساعد: a.counts, تفاصيل_التنبيهات_حسب_القسم: areas };
+  const ctx = await aiContext();
   const prompt = 'أنت مساعد لمصنع ملابس (تصنيع للغير، العميل يملك القماش). أجب بالعربية باختصار ووضوح اعتماداً فقط على الأرقام المجمعة التالية، ولا تخترع أرقاماً. إذا لم تكفِ البيانات قل ذلك.\nالأرقام: ' + JSON.stringify(ctx) + '\nالسؤال: ' + q;
   const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   try {
@@ -171,6 +174,150 @@ async function aiAsk(body) {
     return { answer: t || 'لا توجد إجابة.', model };
   } catch (e) { return { error: 'تعذر الاتصال بالمساعد الذكي.' }; }
 }
+
+/* ---------- AI chat assistant (Gemini free tier) ----------
+   One endpoint, real conversation. The model may:
+   1) answer from aggregated numbers (summary) or ask for record lookups - lookups run
+      server-side and only for screens the user has permission to see;
+   2) draft text (customer messages, invoice notes, ...) for the user to copy;
+   3) open a screen (whitelisted page ids, filtered by the user's permissions);
+   4) propose ONE draft create (client/model/payment/expense) which is NEVER saved here:
+      the client shows it and, only after the user presses "confirm create", posts it to the
+      normal API endpoint with the user's own token - so role checks, screen permissions,
+      period locks and the audit log all apply exactly as if the user typed it himself.
+   Honest limits: free-tier quotas (per-minute + a conservative daily cap), no edits/deletes,
+   no complex documents (invoices/journals) - for those it opens the right screen instead. */
+const AI_OPEN_PAGES = { home: null, clients: 'masters', models: 'masters', stages: 'masters', store: 'fabric', orders: 'fabric', outs: 'fabric', receipts: 'fabric', cuts: 'fabric', prod: 'fabric', deliveries: 'fabric', invoices: 'fabric', stages_board: 'tools', employees: 'hr', attendance: 'hr', payroll: 'hr', payments: 'accounts', accounts: 'accounts', acctstmt: 'accounts', aging: 'tools', expenses: 'tools', profit: 'tools', daily_close: 'tools', inv_stock: 'inventory', inv_items: 'inventory', inv_moves: 'inventory', sinv_list: 'invoices', sinv_new: 'invoices', pinv_list: 'invoices', pinv_new: 'invoices', branches: 'invoices', gl_accounts: 'accounting', gl_journal: 'accounting', gl_ledger: 'accounting', gl_subledger: 'accounting', gl_suppliers: 'accounting', gl_supledger: 'accounting', supplier_statement: 'accounting', gl_trial: 'accounting', gl_statements: 'accounting', cash_flow: 'accounting', bank_rec: 'accounting', assets: 'accounting', accruals: 'accounting', vat: 'accounting', gl_close: 'accounting' };
+const AI_CREATES = {
+  client: { perm: 'masters', endpoint: '/clients', label: 'عميل جديد', fields: ['code', 'name', 'phone', 'address', 'notes'], req: ['code', 'name'], nums: [] },
+  model: { perm: 'masters', endpoint: '/models', label: 'موديل جديد', fields: ['code', 'name', 'client_id', 'description', 'price'], req: ['code', 'name'], nums: ['client_id', 'price'] },
+  payment: { perm: 'accounts', endpoint: '/payments', label: 'دفعة مقبوضات', fields: ['client_id', 'date', 'amount', 'method', 'notes'], req: ['client_id', 'date', 'amount'], nums: ['client_id', 'amount'] },
+  expense: { perm: 'tools', endpoint: '/expenses', label: 'مصروف', fields: ['date', 'cut_code', 'category', 'amount', 'notes'], req: ['date', 'category', 'amount'], nums: ['amount'] }
+};
+const aiPerm = (u, p) => !p || u.perms.includes('*') || u.perms.includes(p);
+const aiCanWrite = (u) => u.role === 'admin' || u.role === 'staff';
+const AI_MIN_LIMIT = 8, AI_DAY_LIMIT = 400;
+const aiState = { min: [], day: '', n: 0 };
+
+const AI_LOOKUPS = {
+  summary: { perm: 'tools', run: () => aiContext() },
+  clients: { perm: 'masters', run: (q) => Q('SELECT id,code,name,phone,active FROM clients WHERE name LIKE ? OR code LIKE ? OR phone LIKE ? ORDER BY name LIMIT 8', aiLike(q, 3)) },
+  models: { perm: 'masters', run: (q) => Q('SELECT m.id,m.code,m.name,m.price,c.name client_name FROM models m LEFT JOIN clients c ON c.id=m.client_id WHERE m.name LIKE ? OR m.code LIKE ? ORDER BY m.code LIMIT 8', aiLike(q, 2)) },
+  cut_orders: { perm: 'fabric', run: (q) => Q('SELECT o.code,o.date,c.name client_name,o.model_name,o.total_pcs,o.delivered,o.cut_status,o.stage,o.unit_cost FROM cut_orders o LEFT JOIN clients c ON c.id=o.client_id WHERE o.code LIKE ? OR c.name LIKE ? OR o.model_name LIKE ? ORDER BY o.id DESC LIMIT 8', aiLike(q, 3)) },
+  cuts: { perm: 'fabric', run: (q) => Q('SELECT t.number,t.date,c.name client_name,m.name model_name,t.pieces_cut,t.damaged_pcs,t.waste_m,t.fabric_used_m FROM cuts t JOIN clients c ON c.id=t.client_id JOIN models m ON m.id=t.model_id WHERE t.number LIKE ? OR c.name LIKE ? OR m.name LIKE ? ORDER BY t.id DESC LIMIT 8', aiLike(q, 3)) },
+  store: { perm: 'fabric', run: (q) => Q('SELECT s.id,s.date,c.name client_name,s.item_code,s.fabric,s.qty,s.unit,s.weight,s.color FROM store_items s JOIN clients c ON c.id=s.client_id WHERE s.item_code LIKE ? OR s.fabric LIKE ? OR c.name LIKE ? ORDER BY s.id DESC LIMIT 8', aiLike(q, 3)) },
+  rolls: { perm: 'fabric', run: (q) => Q('SELECT r.roll_no,c.name client_name,r.fabric_type,r.color,r.length_m,r.used_m,(r.length_m-r.used_m) remaining_m,r.weight_kg FROM rolls r JOIN clients c ON c.id=r.client_id WHERE r.roll_no LIKE ? OR r.fabric_type LIKE ? OR c.name LIKE ? OR r.color LIKE ? ORDER BY remaining_m DESC LIMIT 8', aiLike(q, 4)) },
+  outs: { perm: 'fabric', run: (q) => Q('SELECT o.date,o.cut_code,o.part,o.party,o.sent,o.received FROM outs o WHERE o.cut_code LIKE ? OR o.party LIKE ? OR o.part LIKE ? ORDER BY o.id DESC LIMIT 8', aiLike(q, 3)) },
+  deliveries: { perm: 'fabric', run: (q) => Q('SELECT d.number,d.date,c.name client_name,d.driver FROM deliveries d JOIN clients c ON c.id=d.client_id WHERE d.number LIKE ? OR c.name LIKE ? ORDER BY d.id DESC LIMIT 8', aiLike(q, 2)) },
+  invoices: { perm: 'fabric', run: (q) => Q('SELECT i.number,i.date,c.name client_name,i.total,i.notes FROM invoices i JOIN clients c ON c.id=i.client_id WHERE i.number LIKE ? OR c.name LIKE ? ORDER BY i.id DESC LIMIT 8', aiLike(q, 2)) },
+  sales_invoices: { perm: 'invoices', run: (q) => Q("SELECT s.no,s.date,s.type,s.total,s.status,s.settle,COALESCE(c.name,p.name,'') party FROM sales_invoices s LEFT JOIN clients c ON c.id=s.client_id LEFT JOIN suppliers p ON p.id=s.supplier_id WHERE s.no LIKE ? OR c.name LIKE ? OR p.name LIKE ? ORDER BY s.id DESC LIMIT 8", aiLike(q, 3)) },
+  payments: { perm: 'accounts', run: (q) => Q('SELECT p.date,c.name client_name,p.amount,p.method,p.notes FROM payments p JOIN clients c ON c.id=p.client_id WHERE c.name LIKE ? OR p.notes LIKE ? OR p.method LIKE ? ORDER BY p.id DESC LIMIT 8', aiLike(q, 3)) },
+  expenses: { perm: 'tools', run: (q) => Q('SELECT e.date,e.cut_code,e.category,e.amount,e.notes FROM expenses e WHERE e.category LIKE ? OR e.cut_code LIKE ? OR e.notes LIKE ? ORDER BY e.id DESC LIMIT 8', aiLike(q, 3)) },
+  employees: { perm: 'hr', run: (q) => Q('SELECT id,code,name,job,salary,active FROM employees WHERE name LIKE ? OR code LIKE ? OR job LIKE ? ORDER BY name LIMIT 8', aiLike(q, 3)) },
+  attendance: { perm: 'hr', run: (q) => Q('SELECT e.name emp_name,a.date,a.status FROM attendance a JOIN employees e ON e.id=a.emp_id WHERE e.name LIKE ? ORDER BY a.date DESC LIMIT 12', aiLike(q, 1)) },
+  inv_items: { perm: 'inventory', run: (q) => Q("SELECT i.code,i.name,i.unit,COALESCE(SUM(CASE WHEN m.kind IN ('out','trout') THEN -m.qty ELSE m.qty END),0) balance,i.min_qty FROM inv_items i LEFT JOIN inv_moves m ON m.item_id=i.id WHERE i.code LIKE ? OR i.name LIKE ? GROUP BY i.id,i.code,i.name,i.unit,i.min_qty ORDER BY i.name LIMIT 8", aiLike(q, 2)) },
+  suppliers: { perm: 'accounting', run: (q) => Q('SELECT id,code,name,phone FROM suppliers WHERE name LIKE ? OR code LIKE ? OR phone LIKE ? ORDER BY name LIMIT 8', aiLike(q, 3)) }
+};
+function aiLike(q, n) { const s = '%' + String(q || '').replace(/[%_]/g, '').trim().slice(0, 60) + '%'; return Array(n).fill(s); }
+
+async function aiGemini(key, sys, contents) {
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+  try {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents, generationConfig: { responseMimeType: 'application/json', temperature: 0.3, maxOutputTokens: 1400 } }) });
+    const j = await r.json();
+    if (!r.ok) {
+      if (r.status === 429) return { error: 'النسخة المجانية من Gemini وصلت لحد السرعة مؤقتًا. انتظر دقيقة وحاول مجددًا.' };
+      return { error: 'تعذر الاتصال بالمساعد الذكي (' + r.status + ').' };
+    }
+    const t = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts ? j.candidates[0].content.parts.map(x => x.text || '').join('') : '';
+    try { return JSON.parse(t); } catch (e) {
+      const m = t.match(/\{[\s\S]*\}/); if (m) { try { return JSON.parse(m[0]); } catch (e2) { /* fall through */ } }
+      if (t && t.trim()) return { say: t.replace(/[{}]/g, '').slice(0, 1500) };
+      return { error: 'لم يصل رد صالح من المساعد الذكي، حاول صياغة الطلب بطريقة أخرى.' };
+    }
+  } catch (e) { return { error: 'تعذر الاتصال بالمساعد الذكي، تحقق من الإنترنت وحاول مرة أخرى.' }; }
+}
+
+async function aiChat(body, u) {
+  if (!aiPerm(u, 'tools')) return { error: 'لا تملك صلاحية استخدام المساعد الذكي.' };
+  const key = process.env.GEMINI_API_KEY; if (!key) return { error: 'المساعد الذكي غير مفعّل (لا يوجد مفتاح).' };
+  const msg = String((body && body.message) || '').trim().slice(0, 800); if (!msg) return { error: 'اكتب طلبك.' };
+  const now = Date.now(); aiState.min = aiState.min.filter(t => now - t < 60000);
+  if (aiState.min.length >= AI_MIN_LIMIT) return { error: 'طلبات كثيرة في دقيقة واحدة، حاول بعد قليل.' };
+  const dayCairo = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+  if (aiState.day !== dayCairo) { aiState.day = dayCairo; aiState.n = 0; }
+  if (aiState.n >= AI_DAY_LIMIT) return { error: 'وصلنا للحد اليومي الآمن للنسخة المجانية، يتجدد غدًا بإذن الله.' };
+  aiState.min.push(now); aiState.n++;
+
+  const lang = body && body.lang === 'en' ? 'en' : 'ar';
+  const lookupsAllowed = Object.keys(AI_LOOKUPS).filter(k => aiPerm(u, AI_LOOKUPS[k].perm));
+  const createsAllowed = aiCanWrite(u) ? Object.keys(AI_CREATES).filter(k => aiPerm(u, AI_CREATES[k].perm)) : [];
+  const pagesAllowed = Object.keys(AI_OPEN_PAGES).filter(k => aiPerm(u, AI_OPEN_PAGES[k]));
+  const sys = [
+    'أنت "مساعد المصنع" داخل نظام ERP لمصنع ملابس يعمل بالتصنيع للغير (العميل يملك القماش، والمصنع يستلمه ويقص ويخيط ويسلّم ويحاسب بالقطعة). تتحدث مع مستخدم داخل النظام.',
+    'أجب دائمًا بكائن JSON واحد فقط بدون أي نص خارجه، بالشكل:',
+    '{"say":"ردك للمستخدم","draft":{"title":"...","text":"..."},"open":"معرف_شاشة","create":{"entity":"...","fields":{...}},"need":[{"kind":"...","query":"..."}]}',
+    'كل الحقول اختيارية عدا say.',
+    'قدراتك:',
+    '1) بيانات النظام: عند الحاجة لأرقام أو سجلات أرسل need (حتى 4 عناصر) مع say قصير، وستصلك النتائج في الرسالة التالية فتجيب نهائيًا بدون need. الأنواع المتاحة لهذا المستخدم: ' + lookupsAllowed.join(', ') + ' (summary = أرقام مجمعة عامة؛ cut_orders = أوامر القص؛ cuts = القصات التفصيلية؛ sales_invoices = فواتير المبيعات/المشتريات الجديدة؛ invoices = فواتير التصنيع؛ rolls = أتواب القماش؛ store = مخزن قماش العملاء).',
+    '2) صياغة النصوص draft: رسائل واتساب/إيميل للعملاء، ملاحظات فواتير، إشعارات. اكتب النص كاملًا جاهزًا للنسخ باللغة والأسلوب اللذين يطلبهما المستخدم.',
+    '3) فتح شاشة open: فقط من هذه المعرفات: ' + pagesAllowed.join(', ') + '.',
+    createsAllowed.length ?
+      '4) مسودة إنشاء create من الأنواع: ' + createsAllowed.map(k => k + ' (' + AI_CREATES[k].label + ', حقول: ' + AI_CREATES[k].fields.join('/') + ')').join('; ') + '. لا يُحفظ شيء إلا بعد ضغط المستخدم "تأكيد الإنشاء". client_id يجب أن يكون id رقميًا من نتائج بحث clients: ابحث أولًا ثم استخدمه، ولا تخمّنه. التاريخ YYYY-MM-DD والمبالغ أرقام. لا تقترح create إلا إذا طلب المستخدم الإنشاء صراحة، وإن نقصت بيانات اسأل عنها في say بدل التخمين.' :
+      '4) هذا المستخدم صلاحيته عرض فقط: لا تقترح أي create، وإن طلب إنشاءً اعتذر بلطف ووجّهه لمن يملك صلاحية الكتابة.',
+    'القواعد:',
+    '- لا تخترع أرقامًا أو أسماء أو أكوادًا؛ اعتمد فقط على نتائج البحث. إن لم تكفِ البيانات قل ذلك صراحة.',
+    '- لا تستطيع التعديل أو الحذف أو إنشاء فواتير أو قيود محاسبية؛ عند الحاجة افتح الشاشة المناسبة بـ open واشرح الخطوات باختصار.',
+    '- say نص طبيعي ودود ومختصر بدون ذكر JSON أو مصطلحات تقنية.',
+    '- لغة say: ' + (lang === 'en' ? 'English' : 'العربية') + '.',
+    '- أنت على النسخة المجانية من Gemini: لو سُئلت عن حدودك فكن صريحًا (حد أقصى للطلبات في الدقيقة واليوم).',
+    'اليوم: ' + dayCairo + '. المستخدم: ' + (u.name || u.username) + ' (الدور: ' + u.role + ').'
+  ].join('\n');
+
+  const hist = Array.isArray(body.history) ? body.history.slice(-6) : [];
+  const contents = hist.map(m2 => ({ role: m2 && m2.role === 'model' ? 'model' : 'user', parts: [{ text: String((m2 && m2.text) || '').slice(0, 800) }] })).filter(c => c.parts[0].text);
+  contents.push({ role: 'user', parts: [{ text: msg }] });
+
+  let j = await aiGemini(key, sys, contents);
+  if (j.error) return j;
+  if (Array.isArray(j.need) && j.need.length) {
+    const results = {};
+    for (const nd of j.need.slice(0, 4)) {
+      const L = nd && AI_LOOKUPS[nd.kind];
+      if (!L || !aiPerm(u, L.perm)) { if (nd && nd.kind) results[nd.kind] = { note: 'نوع غير متاح لصلاحيات هذا المستخدم' }; continue; }
+      try { results[nd.kind] = await L.run(String(nd.query || '')); } catch (e) { results[nd.kind] = { note: 'تعذر البحث' }; }
+    }
+    contents.push({ role: 'model', parts: [{ text: JSON.stringify(j) }] });
+    contents.push({ role: 'user', parts: [{ text: 'نتائج البحث من النظام (JSON): ' + JSON.stringify(results).slice(0, 7000) + '\nأجب الآن إجابة نهائية بنفس صيغة JSON وبدون need.' }] });
+    j = await aiGemini(key, sys, contents);
+    if (j.error) return j;
+  }
+
+  const out = { say: String(j.say || '').slice(0, 2000) };
+  if (j.draft && j.draft.text) out.draft = { title: String(j.draft.title || 'مسودة نص').slice(0, 120), text: String(j.draft.text).slice(0, 4000) };
+  if (j.open && pagesAllowed.includes(String(j.open))) out.open = String(j.open);
+  if (j.create && j.create.entity) {
+    const ent = String(j.create.entity); const spec = AI_CREATES[ent];
+    if (spec && createsAllowed.includes(ent)) {
+      const f = {};
+      for (const k of spec.fields) {
+        let v = j.create.fields ? j.create.fields[k] : undefined;
+        if (v === undefined || v === null || v === '') continue;
+        if (spec.nums.includes(k)) { v = Number(v); if (!isFinite(v)) continue; }
+        else if (k === 'date') { v = String(v).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) continue; }
+        else v = String(v).slice(0, 250);
+        f[k] = v;
+      }
+      const missing = spec.req.filter(k => f[k] === undefined);
+      if (missing.length) out.say = (out.say ? out.say + '\n' : '') + 'لم أجهّز مسودة الإنشاء لنقص البيانات: ' + missing.join('، ') + '. أرسلها لي وأكملها فورًا.';
+      else out.create = { entity: ent, label: spec.label, endpoint: spec.endpoint, fields: f };
+    }
+  }
+  if (!out.say && !out.draft && !out.create) out.say = lang === 'en' ? 'I could not build a useful reply. Try rephrasing.' : 'لم أستطع تكوين رد مفيد، حاول صياغة الطلب بطريقة أخرى.';
+  out.quota = { used: aiState.n, limit: AI_DAY_LIMIT };
+  return out;
+}
+
 
 /* Period lock: records dated before setting lock_before (YYYY-MM-DD) cannot be created, edited or deleted. Admin clears the setting to unlock. */
 const LOCK_T = { orders: 'cut_orders', outs: 'outs', expenses: 'expenses', payments: 'payments' };
@@ -198,6 +345,7 @@ async function dailyClose(q) {
 async function api(head, req, u, id, body, q) {
   if (head === 'daily-close' && req.method === 'GET') return dailyClose(q || {});
   if (head === 'ai-ask' && req.method === 'POST') return aiAsk(body);
+  if (head === 'ai-chat' && req.method === 'POST') return aiChat(body, u);
   if (head === 'expenses') return expensesApi(req, u, id, body);
   if (head === 'profit') return profit();
   if (head === 'aging') return aging();

@@ -1,0 +1,128 @@
+/* ===== "Midnight Luxe" identity: deep night blue-black + champagne gold, a full dark mode for late shifts ===== */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Almarai:wght@400;700;800&display=swap');
+:root{--ink:#e9edf8;--ink2:#c3cbdf;--canvas:#0b1020;--card:#141b30;--lime:#2a3454;--lime2:#d9b45c;--teal:#d9b45c;--mut:#8b93ad;--bd:#242d49;--soft:#171f38;--coral:#e0644f;--red:#e0574f;--grn:#4fbf8b;--r:14px;--sh:0 1px 2px rgba(0,0,0,.35),0 12px 30px rgba(0,0,0,.4);--thread:#d9b45c}
+body{font-family:"Almarai","Segoe UI",Tahoma,Arial,sans-serif;background:var(--canvas);color:var(--ink)}
+h1,h2,h3,.brand h1,.kpi b,.land h1,.lg-card h2,.page-head h2,.panel>.ph{font-family:Cairo,"Almarai",sans-serif}
+.num,.grid td.num,.kpi b{font-variant-numeric:tabular-nums}
+/* sidebar: pitch night with a gold thread seam */
+.side{background:linear-gradient(180deg,#0a0e1c,#060912);color:#dfe5f2;border-left:1px solid #060912}
+.side:before{background-image:none;background:radial-gradient(600px 220px at 100% 0,rgba(217,180,92,.16),transparent 70%)}
+.side:after{content:"";position:absolute;top:0;bottom:0;left:0;width:0;border-left:2px dashed rgba(217,180,92,.55);pointer-events:none}
+.brand h1{color:#fff;font-weight:800}.brand small{color:var(--lime2);font-weight:700}
+.brand svg rect{fill:var(--lime2)}
+.navg>b{color:#7d86a3;font-size:10.5px;letter-spacing:1.2px}
+.nv{color:#b9c2da;border-right:0;border-radius:10px;padding:9px 12px;position:relative}
+.nv:hover{background:rgba(255,255,255,.07);color:#fff;transform:translateX(-2px)}
+.nv.on{background:linear-gradient(90deg,transparent,rgba(217,180,92,.2));color:#ffe9bd;font-weight:700}
+.nv.on:before{content:"";position:absolute;right:-12px;top:8px;bottom:8px;width:4px;border-radius:4px;background:var(--lime2)}
+.me{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}.me .av{background:var(--lime2);color:#0b1020}.me small{color:#98a1bc}
+.me button,.mute{border-color:rgba(255,255,255,.25);color:#dfe5f2;background:transparent}.me button:hover{background:var(--coral);border-color:var(--coral);color:#fff}
+.side-copy{color:#7d86a3;border-top-color:rgba(255,255,255,.12)}
+/* top tabs as night pills */
+.topbar{background:rgba(11,16,32,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd);padding:10px 22px;align-items:center;min-height:78px}
+.tab{border-radius:999px;border:1px solid transparent;padding:7px 16px;color:#9aa3be}
+.tab:hover{background:#1a2238}.tab.on{background:var(--lime2);color:#0b1020;border-color:var(--lime2);box-shadow:0 6px 16px rgba(217,180,92,.3)}
+.tab.on b{opacity:.75}.tab b:hover{background:rgba(0,0,0,.18)}
+.today{padding:0 4px}.today.sclock{background:#141b30;box-shadow:var(--sh)}.today.sclock .ck-t{color:#ffe9bd}.today.sclock .ck-d{color:#aab3cc}
+.btn{border-color:var(--bd);background:#1a2238;color:var(--ink)}.btn:hover{border-color:var(--lime2);background:#20294a;color:#ffe9bd}
+.btn.pri{background:linear-gradient(135deg,#c9a44a,#e3c274);border-color:transparent;color:#191204;box-shadow:0 6px 16px rgba(217,180,92,.28)}
+.btn.pri:hover{background:linear-gradient(135deg,#b8923d,#d9b45c);color:#191204;transform:translateY(-1px)}
+.tbn{color:var(--ink)}.tbn:hover{background:#1a2238;border-color:var(--lime2)}
+#desk{background:var(--canvas);background-image:radial-gradient(#1b2440 1px,transparent 1px);color:var(--ink)}
+/* headers */
+.page-head h2{font-weight:800;letter-spacing:0;color:var(--ink)}.page-head h2:after{width:54px;height:4px;background:repeating-linear-gradient(90deg,var(--thread) 0 8px,transparent 8px 13px);border-radius:0}
+.panel{border-radius:18px;border-color:var(--bd);background:var(--card);color:var(--ink)}
+.panel>.ph{background:#141b30;color:var(--ink);border-bottom:1px dashed #2c3656;font-size:15px}
+.panel>.ph:before{background:var(--thread)}
+.kpi{border-radius:18px;border-color:var(--bd);background:var(--card)}
+.kpi span{color:var(--mut)}.kpi b{color:var(--ink)}
+.kpi:before{background:rgba(217,180,92,.12)}.kpi:first-child{background:linear-gradient(135deg,#1a1408,#3d2f10);border:0}.kpi:first-child:before{background:rgba(255,255,255,.08)}
+.kpi:first-child span{color:#d9c58f}.kpi:first-child b{color:#ffe9bd}
+.kpi.neg:before{background:rgba(224,100,79,.22)}.kpi.pos:before{background:rgba(79,191,139,.2)}
+/* tables */
+.tbl-wrap{border-radius:18px;border-color:var(--bd);box-shadow:var(--sh);background:var(--card)}
+.grid th{background:#171f38;color:#9aa3be;border-bottom:1px solid var(--bd)}
+.grid td{border-bottom:1px solid #1d2540;color:var(--ink)}.grid tbody tr:hover{background:#1a2340}
+.grid tfoot td{background:#0a0e1c;color:#ffe9bd}
+.inp{border-color:#2c3656;background:#0f1527;color:var(--ink)}.inp:focus{border-color:var(--lime2);box-shadow:0 0 0 4px rgba(217,180,92,.16)}
+.filters{background:#171f38;border-color:#2c3656}.kcol{border-color:#2c3656}
+.win-title{background:linear-gradient(135deg,#0a0e1c,#1a2238);color:#ffe9bd}.win{border-radius:22px;background:var(--card);color:var(--ink)}
+.win-foot{background:#171f38}.win-x:hover{background:var(--coral)}
+.modal-back{background:rgba(4,6,12,.66)}
+.tag.ok{background:#123324;color:#7bd8ab}.tag.warn{background:#3a2c10;color:#e8c87a}.tag.err,.tag.bad{background:#3a1613;color:#f0a297}
+.seg button{color:var(--mut)}.seg button.on{color:#ffe9bd;background:#1a2238}
+.note,.alert-line{background:#241a10;color:#e8c87a}
+/* login: night sky, gold woven panel */
+.land{background:#0b1020;color:var(--ink)}
+.tagline{background:#141b30;color:#ffe9bd;border-color:var(--bd)}.tagline:before{background:var(--lime2)}
+.land h1{color:#f2f5fc;font-weight:900;letter-spacing:0;line-height:1.22;margin-bottom:24px}
+.land h1 em{background-image:linear-gradient(var(--lime2),var(--lime2))}
+.land .lead{color:#9aa3be}
+.stg{background:#141b30;border-color:var(--bd);color:var(--ink)}
+.stg small{color:var(--thread)}
+.stg-ar{color:#5f688a}
+.land-r{background:radial-gradient(900px 500px at 20% 10%,#1b2340 0,transparent 60%),linear-gradient(160deg,#0a0e1c,#060912)}
+.land-r:before{background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:26px 26px}
+.land-r:after{background:radial-gradient(circle,rgba(217,180,92,.34),transparent 65%)}
+.lg-card{background:#141b30;transform:none;border-radius:28px;box-shadow:0 40px 90px rgba(0,0,0,.6);animation:cardIn2 .9s cubic-bezier(.2,.8,.2,1) both}
+@keyframes cardIn2{from{opacity:0;transform:translateY(34px) scale(.96)}to{opacity:1;transform:none}}
+.lg-card:after{border:1.5px dashed rgba(217,180,92,.6);inset:9px;border-radius:21px}
+.lg-card h2{color:#f2f5fc}
+.lg-card .sub{color:#8b93ad}.lg-card input{background:#0f1527;border-color:#2c3656;color:var(--ink)}.lg-card input:focus{border-color:var(--lime2);background:#141b30}
+.lg-card button.go{background:linear-gradient(135deg,#c9a44a,#e3c274);color:#191204}.lg-card button.go:hover{background:linear-gradient(135deg,#b8923d,#d9b45c);box-shadow:0 12px 26px rgba(217,180,92,.4)}
+.lg-msg{color:#f0a297}.lg-msg.info{color:#e8c87a}.lg-foot{color:#8b93ad}
+.login-clock{background:rgba(10,14,28,.85);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px)}.login-clock .ck-t{color:#ffe9bd}.login-clock .ck-d{color:#aab3cc}
+.land-f{color:#7d86a3;border-top-color:var(--bd)}
+.land-f .copy{color:var(--lime2)}
+.art svg [fill="#3547e0"]{fill:#d9b45c}
+.art svg [fill="#9aa8ff"]{fill:#5c6b99}
+.art svg [fill="#0f1437"]{fill:#0a0e1c}
+.art svg [stroke="#0f1437"]{stroke:#e9edf8}
+.art svg [fill="#f0457a"],.art svg [stroke="#f0457a"]{fill:#d9b45c;stroke:#d9b45c}
+.art svg [stroke="#9aa8ff"]{stroke:#5c6b99}
+.art svg [fill="#f2f4fb"]{fill:#0b1020}
+.art svg [fill="#fff"]{fill:#141b30}
+.art svg text{fill:#8b93ad}
+button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(--lime2)}
+::-webkit-scrollbar-thumb{background:#2c3656}::-webkit-scrollbar-thumb:hover{background:var(--lime2)}
+/* charts + clock skin */
+.bar-row .bt{background:#1a2238}.alert-line{background:#241a10;color:#e8c87a}
+.sclock{font-family:Cairo,"Almarai",sans-serif}
+.sclock .ck-s.sep{color:var(--lime2)}
+.sclock .ck-s.sec{color:#e8c87a}
+.sclock .ck-bar{background:linear-gradient(90deg,var(--lime2),#5c6b99)}
+.today.sclock .ck-t{color:#ffe9bd}.today.sclock .ck-d{color:#aab3cc}
+.seg button.on{color:#ffe9bd}
+/* dark-surface components that reuse --ink as a dark color in the base sheet */
+.topnav{background:#0a0e1c;color:#dfe5f2;box-shadow:0 2px 14px rgba(0,0,0,.5)}
+.tn:hover{background:rgba(255,255,255,.08)}.tn.sel{background:#2a3454;color:#ffe9bd}
+.burger{background:#1a2238;color:#ffe9bd}
+.ctab.on{background:var(--lime2);color:#191204}
+.toast{background:#1a2238;color:#e9edf8;border-right-color:var(--lime2)}
+.bar .bb i.e{background:var(--lime2)}
+/* theme picker cards on dark */
+.thm-card{background:#1a2238;border-color:#2c3656}
+.thm-card:hover{border-color:var(--lime2)}
+.thm-card.on{border-color:var(--lime2);box-shadow:0 0 0 3px rgba(217,180,92,.22)}
+.thm-card b{color:#e9edf8}.thm-card small{color:#8b93ad}
+.thm-note{color:#8b93ad}
+/* contrast fixes: toolbar buttons, topnav active, white-surface widgets */
+.tbn{background:#1a2238;color:#dfe5f2;border-color:#2c3656}
+.tbn:hover{background:#2a3454;border-color:var(--lime2);color:#ffe9bd}
+.tn-sec{color:#aab3cc}
+.tn-sec:hover{background:rgba(255,255,255,.08);color:#fff}
+.tn-sec.on{background:rgba(217,180,92,.22);color:#ffe9bd}
+.backbtn{background:#1a2238;border-color:#2c3656;color:#e9edf8}
+.backbtn:hover{border-color:var(--lime2);color:#ffe9bd}
+.rb{background:#1a2238;border-color:#2c3656;color:#dfe5f2}
+.rb:hover{border-color:var(--lime2);color:#ffe9bd}
+.kcard{background:#141b30;border-color:#242d49;color:#e9edf8}
+.qa-b{background:#1a2238;border-color:#2c3656;color:#e9edf8}
+.qa-b:hover{background:#2a3454;box-shadow:0 8px 20px rgba(0,0,0,.45)}
+.sq:hover{background:#1a2238;border-color:var(--lime2)}
+.gl-row select,.gl-row input,.rng input{background:#0f1527;border-color:#2c3656;color:#e9edf8}
+/* dashboard greeting hero: keep it a night gradient (base starts from --ink, which is light here) */
+.clock-hero{background:linear-gradient(135deg,#0d1430 0%,#16204a 60%,#1e2c5e 100%);color:#fff;box-shadow:0 12px 34px rgba(0,0,0,.45)}
+.clock-hero:before{background:radial-gradient(circle at 85% 20%,rgba(217,180,92,.16),transparent 55%)}
+.clock-hero .ch-g,.clock-hero .ck-d{color:#f2f5fc}
+.clock-hero .bigclock .ck-t{color:#ffe9bd}

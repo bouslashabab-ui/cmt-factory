@@ -1,0 +1,94 @@
+/* ===== "Morning Glass" identity: frosted white glass + sky blue, airy and bright like a sunlit atelier ===== */
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;800;900&family=Almarai:wght@400;700;800&display=swap');
+:root{--ink:#12314a;--ink2:#1d4561;--canvas:#e9f3fa;--card:rgba(255,255,255,.82);--lime:#bfe0f4;--lime2:#2f8fd6;--teal:#2273b3;--mut:#6d8aa0;--bd:#d5e6f2;--soft:#eef6fc;--coral:#e0654a;--red:#cf4438;--grn:#239f72;--r:18px;--sh:0 1px 2px rgba(30,80,120,.05),0 12px 30px rgba(45,110,160,.1);--thread:#2f8fd6}
+body{font-family:"Almarai","Segoe UI",Tahoma,Arial,sans-serif;background:linear-gradient(160deg,#eaf4fb 0%,#dcecf8 45%,#e8f3f0 100%)}
+h1,h2,h3,.brand h1,.kpi b,.land h1,.lg-card h2,.page-head h2,.panel>.ph{font-family:Tajawal,"Almarai",sans-serif}
+.num,.grid td.num,.kpi b{font-variant-numeric:tabular-nums}
+/* sidebar: frosted glass with a sky seam */
+.side{background:rgba(255,255,255,.72);backdrop-filter:blur(14px);color:var(--ink);border-left:1px solid var(--bd);box-shadow:-10px 0 40px rgba(45,110,160,.08)}
+.side:before{background-image:none;background:radial-gradient(600px 220px at 100% 0,rgba(47,143,214,.1),transparent 70%)}
+.side:after{content:"";position:absolute;top:0;bottom:0;left:0;width:0;border-left:2px dashed rgba(47,143,214,.5);pointer-events:none}
+.brand h1{color:var(--ink);font-weight:800}.brand small{color:var(--teal);font-weight:700}
+.brand svg rect{fill:var(--lime2)}
+.navg>b{color:#8aa5b8;font-size:10.5px;letter-spacing:1.2px}
+.nv{color:#4a6b83;border-right:0;border-radius:10px;padding:9px 12px;position:relative}
+.nv:hover{background:rgba(47,143,214,.1);color:var(--ink);transform:translateX(-2px)}
+.nv.on{background:linear-gradient(90deg,transparent,rgba(47,143,214,.16));color:var(--teal);font-weight:700}
+.nv.on:before{content:"";position:absolute;right:-12px;top:8px;bottom:8px;width:4px;border-radius:4px;background:var(--lime2)}
+.me{background:rgba(255,255,255,.6);border:1px solid var(--bd)}.me .av{background:var(--lime2);color:#fff}.me small{color:#7c99ad}
+.me button,.mute{border-color:var(--bd);color:var(--ink);background:rgba(255,255,255,.5)}.me button:hover{background:var(--coral);border-color:var(--coral);color:#fff}
+.side-copy{color:#8aa5b8;border-top-color:var(--bd)}
+/* top tabs as frosted pills */
+.topbar{background:rgba(233,243,250,.78);backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);padding:10px 22px;align-items:center;min-height:78px}
+.tab{border-radius:999px;border:1px solid transparent;padding:7px 16px;color:#5f7f96}
+.tab:hover{background:rgba(255,255,255,.7)}.tab.on{background:var(--lime2);color:#fff;border-color:var(--lime2);box-shadow:0 6px 16px rgba(47,143,214,.3)}
+.tab.on b{opacity:.85}.tab b:hover{background:rgba(255,255,255,.25)}
+.today{padding:0 4px}.today.sclock{background:rgba(255,255,255,.85);box-shadow:var(--sh)}.today.sclock .ck-t{color:var(--teal)}.today.sclock .ck-d{color:#6d8aa0}
+.btn{border-color:var(--bd);background:rgba(255,255,255,.8)}.btn:hover{border-color:var(--lime2);background:#fff;color:var(--teal)}
+.btn.pri{background:linear-gradient(135deg,#2273b3,#3b9fdd);border-color:transparent;color:#fff;box-shadow:0 6px 16px rgba(34,115,179,.26)}
+.btn.pri:hover{background:linear-gradient(135deg,#1b6199,#2f8fd6);color:#fff;transform:translateY(-1px)}
+.tbn:hover{background:rgba(255,255,255,.75);border-color:var(--lime2)}
+#desk{background:transparent;background-image:radial-gradient(#cfe2ef 1px,transparent 1px)}
+/* headers */
+.page-head h2{font-weight:800;letter-spacing:0}.page-head h2:after{width:54px;height:4px;background:repeating-linear-gradient(90deg,var(--thread) 0 8px,transparent 8px 13px);border-radius:0}
+.panel{border-radius:22px;border-color:var(--bd);background:var(--card);backdrop-filter:blur(8px)}
+.panel>.ph{background:transparent;color:var(--ink);border-bottom:1px dashed #cfe2ef;font-size:15px}
+.panel>.ph:before{background:var(--thread)}
+.kpi{border-radius:22px;border-color:var(--bd);background:var(--card);backdrop-filter:blur(8px)}
+.kpi:before{background:rgba(47,143,214,.1)}.kpi:first-child{background:linear-gradient(135deg,#2273b3,#2f8fd6);border:0}.kpi:first-child:before{background:rgba(255,255,255,.14)}
+.kpi:first-child span{color:#cfe8f8}.kpi:first-child b{color:#fff}
+.kpi.neg:before{background:rgba(224,101,74,.18)}.kpi.pos:before{background:rgba(35,159,114,.16)}
+/* tables */
+.tbl-wrap{border-radius:22px;border-color:var(--bd);box-shadow:var(--sh);background:var(--card);backdrop-filter:blur(8px)}
+.grid th{background:#eef6fc;color:#557890;border-bottom:1px solid var(--bd)}
+.grid td{border-bottom:1px solid #e8f1f8}.grid tbody tr:hover{background:#f0f8fd}
+.grid tfoot td{background:#2273b3}
+.inp{border-color:#cfe2ef;background:rgba(255,255,255,.85)}.inp:focus{border-color:var(--lime2);box-shadow:0 0 0 4px rgba(47,143,214,.15)}
+.filters{background:#eef6fc;border-color:#cfe2ef}.kcol{border-color:#cfe2ef}
+.win-title{background:linear-gradient(135deg,#2273b3,#1b5c8f)}.win{border-radius:24px}
+.win-foot{background:#eef6fc}.win-x:hover{background:var(--coral)}
+.modal-back{background:rgba(18,49,74,.4)}
+.tag.ok{background:#dff3ea;color:#1d7d57}
+/* login: morning sky, frosted panel */
+.land{background:linear-gradient(160deg,#eaf4fb,#dcecf8)}
+.tagline{background:rgba(255,255,255,.85);color:var(--teal);border-color:var(--bd)}.tagline:before{background:var(--lime2)}
+.land h1{color:var(--ink);font-weight:900;letter-spacing:0;line-height:1.22;margin-bottom:24px}
+.land h1 em{background-image:linear-gradient(var(--lime2),var(--lime2))}
+.land .lead{color:#557890}
+.stg{background:rgba(255,255,255,.8);border-color:var(--bd)}
+.stg small{color:var(--thread)}
+.stg-ar{color:#9db8ca}
+.land-r{background:radial-gradient(900px 500px at 20% 10%,#bfe0f4 0,transparent 60%),linear-gradient(160deg,#2f8fd6,#1b5c8f)}
+.land-r:before{background-image:linear-gradient(rgba(255,255,255,.14) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.14) 1px,transparent 1px);background-size:26px 26px}
+.land-r:after{background:radial-gradient(circle,rgba(255,255,255,.35),transparent 65%)}
+.lg-card{background:rgba(255,255,255,.88);backdrop-filter:blur(16px);transform:none;border-radius:30px;box-shadow:0 40px 90px rgba(20,60,95,.35);animation:cardIn2 .9s cubic-bezier(.2,.8,.2,1) both}
+@keyframes cardIn2{from{opacity:0;transform:translateY(34px) scale(.96)}to{opacity:1;transform:none}}
+.lg-card:after{border:1.5px dashed rgba(47,143,214,.5);inset:9px;border-radius:23px}
+.lg-card h2{color:var(--ink)}
+.lg-card .sub{color:#6d8aa0}.lg-card input{background:#eef6fc;border-color:#d5e6f2}.lg-card input:focus{border-color:var(--lime2);background:#fff}
+.lg-card button.go{background:linear-gradient(135deg,#2273b3,#3b9fdd)}.lg-card button.go:hover{background:linear-gradient(135deg,#1b6199,#2f8fd6);box-shadow:0 12px 26px rgba(34,115,179,.4)}
+.lg-msg{color:#cf4438}.lg-msg.info{color:#2273b3}.lg-foot{color:#6d8aa0}
+.login-clock{background:rgba(255,255,255,.8);border:1px solid var(--bd);backdrop-filter:blur(10px)}.login-clock .ck-t{color:var(--teal)}.login-clock .ck-d{color:#6d8aa0}
+.land-f{color:#6d8aa0;border-top-color:var(--bd)}
+.land-f .copy{color:var(--teal)}
+.art svg [fill="#3547e0"]{fill:#2273b3}
+.art svg [fill="#9aa8ff"]{fill:#8ec4e8}
+.art svg [fill="#0f1437"]{fill:#12314a}
+.art svg [stroke="#0f1437"]{stroke:#12314a}
+.art svg [fill="#f0457a"],.art svg [stroke="#f0457a"]{fill:#2f8fd6;stroke:#2f8fd6}
+.art svg [stroke="#9aa8ff"]{stroke:#8ec4e8}
+.art svg [fill="#f2f4fb"]{fill:#e9f3fa}
+.art svg [fill="#fff"]{fill:#fff}
+.art svg text{fill:#6d8aa0}
+button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(--lime2)}
+::-webkit-scrollbar-thumb{background:#b8d6e8}::-webkit-scrollbar-thumb:hover{background:var(--lime2)}
+/* charts + clock skin */
+.bar-row .bt{background:#dcecf8}.alert-line{background:#fdeae4;color:#b04a30}
+.sclock{font-family:Tajawal,"Almarai",sans-serif}
+.sclock .ck-s.sep{color:var(--lime2)}
+.sclock .ck-s.sec{color:#5cb0e4}
+.sclock .ck-bar{background:linear-gradient(90deg,var(--lime2),#bfe0f4)}
+.today.sclock .ck-t{color:var(--teal)}.today.sclock .ck-d{color:#6d8aa0}
+.seg button.on{color:var(--teal)}
+/* topnav active contrast on the deep strip */
+.tn-sec.on{background:rgba(47,143,214,.4);color:#eaf7ff}
