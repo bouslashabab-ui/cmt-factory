@@ -1321,7 +1321,7 @@
     const mem = t.match(/^([^\p{L}\p{N}]+\s*)(.+)$/u);
     if (mem) { const en4 = DICT[mem[2].trim()]; if (en4) return s.replace(t, mem[1] + en4); }
     for (const [ap, ep] of PREFIX) if (t.startsWith(ap)) { const rest = t.slice(ap.length); const r2 = DICT[rest] || trText(rest); return s.replace(t, ep + (r2 || rest)); }
-    if (/[\d)]$/.test(t) && t.length > 6) {
+    if (/[\d)*]$/.test(t) && t.length > 6) {
       if (PREKEYS === null) PREKEYS = Object.keys(DICT).filter(k => k.length >= 6).sort((a, b) => b.length - a.length);
       for (const k of PREKEYS) {
         if (t.length > k.length && t.startsWith(k)) {
