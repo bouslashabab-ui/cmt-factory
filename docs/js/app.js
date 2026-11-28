@@ -21,7 +21,7 @@ async function openPage(key) {
   try { history.replaceState(null, '', '#p=' + key); } catch (e) {}
   openWin(key, TITLES[key] || key, async () => { const r = f(); return await r; }, { refresh: true });
 }
-function logout() { SND.play('logout'); sessionStorage.removeItem('cmt_tok'); setTimeout(() => location.reload(), 650); }
+function logout() { SND.play('logout'); sessionStorage.removeItem('cmt_tok'); try { history.replaceState(null, '', location.pathname); } catch (e) {} setTimeout(() => location.reload(), 650); }
 function muteBtn() { const b = h('button', { class: 'mute', title: 'كتم / تشغيل الأصوات', onclick: () => { const m = SND.toggle(); b.textContent = m ? '🔇' : '🔊'; } }, SND.muted ? '🔇' : '🔊'); return b; }
 const ROLE_AR = { admin: 'مدير النظام', staff: 'موظف', viewer: 'عرض فقط' };
 
@@ -131,7 +131,7 @@ async function boot() {
   if (!MZ.api) { app.textContent = 'إعداد الخادم غير موجود'; return; }
   if (MZ.token) {
     try { const me = await GET('/me'); MZ.user = me.user; MZ.settings = me.settings; if (me.user.theme && me.user.theme !== MZ.theme) applyTheme(me.user.theme); await Promise.all(['clients', 'models', 'stages'].map(n => load(n, true))); shell(); return; }
-    catch (e) { sessionStorage.removeItem('cmt_tok'); MZ.token = null; }
+    catch (e) { sessionStorage.removeItem('cmt_tok'); MZ.token = null; try { history.replaceState(null, '', location.pathname); } catch (x) {} }
   }
   loginScreen();
 }
@@ -156,7 +156,7 @@ function loginScreen() {
     try {
       if (setupMode) await POST('/setup', { username: user.value, password: pass.value, company: company.value });
       const r = await POST('/login', { username: user.value, password: pass.value });
-      go.classList.remove('busy'); go.classList.add('done'); MZ.token = r.token; sessionStorage.setItem('cmt_tok', r.token); SND.play('login'); await boot();
+      go.classList.remove('busy'); go.classList.add('done'); MZ.token = r.token; sessionStorage.setItem('cmt_tok', r.token); try { history.replaceState(null, '', location.pathname); } catch (x) {} SND.play('login'); await boot();
     } catch (err) { go.classList.remove('busy'); msg.className = 'lg-msg'; msg.textContent = err.message; go.disabled = false; form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); }
   } }, title, sub, compBox, h('label', { for: 'u' }, 'اسم المستخدم'), userFld, h('label', { for: 'p' }, 'كلمة المرور'), passFld, caps, go, msg, h('div', { class: 'lg-foot' }, APP_NAME + ' © التصنيع للغير'));
   const ART = '<svg viewBox="0 0 520 300" fill="none"><g class="float"><rect x="20" y="170" width="190" height="64" rx="32" fill="#3547e0"/><ellipse cx="52" cy="202" rx="22" ry="22" fill="#0f1437"/><ellipse cx="52" cy="202" rx="9" ry="9" fill="#f2f4fb"/><rect x="40" y="120" width="190" height="60" rx="30" fill="#9aa8ff" stroke="#0f1437" stroke-width="2"/><ellipse cx="72" cy="150" rx="20" ry="20" fill="#0f1437"/><ellipse cx="72" cy="150" rx="8" ry="8" fill="#f2f4fb"/></g><path class="draw" d="M300 60l40-22 30 14 30-14 40 22-22 36-22-10v118h-92V86l-22 10z" fill="#fff" stroke="#0f1437" stroke-width="3" stroke-linejoin="round"/><path class="cut" d="M262 20C300 140 420 150 500 270" stroke="#f0457a" stroke-width="3" stroke-linecap="round"/><circle cx="262" cy="20" r="6" fill="#f0457a"/><path d="M330 120h70M330 140h70M330 160h50" stroke="#9aa8ff" stroke-width="5" stroke-linecap="round"/><g transform="translate(250 262)"><path d="M0 0h260" stroke="#0f1437" stroke-width="2" stroke-dasharray="3 6"/><text x="0" y="-8" font-size="12" fill="#7a82a6" font-family="Tahoma">cut · sew · deliver</text></g></svg>';
