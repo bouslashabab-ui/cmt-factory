@@ -879,3 +879,34 @@ body.lay-compact .panel .pb,body.lay-compact .pb{padding:10px 14px}
 @media print{.ntf-panel,.ntf-banner,.ntf-bell{display:none!important}}
 .lg-forgot{display:block;text-align:center;margin:10px 0 0;font-size:13px;color:var(--teal);text-decoration:none}
 .lg-forgot:hover{text-decoration:underline}
+
+/* ===== AI assistant chat (theme-independent, styled by theme variables) ===== */
+.ai-panel .pb{display:flex;flex-direction:column;gap:10px}
+.ai-msgs{display:flex;flex-direction:column;gap:10px;min-height:200px;max-height:430px;overflow-y:auto;padding:4px 2px}
+.ai-m{max-width:84%;padding:10px 14px;border-radius:14px;line-height:1.9;white-space:pre-wrap;word-break:break-word}
+.ai-m.user{align-self:flex-end;background:var(--teal);color:#fff;border-bottom-left-radius:4px}
+.ai-m.bot{align-self:flex-start;background:var(--soft);border:1px solid var(--bd);color:var(--ink);border-bottom-right-radius:4px}
+.ai-m.wait{opacity:.7;font-style:italic}
+.ai-m.err{background:#fdecec;border-color:#f3c2c2;color:#a33}
+[dir=ltr] .ai-m.user{border-radius:14px 14px 4px 14px}
+[dir=ltr] .ai-m.bot{border-radius:14px 14px 14px 4px}
+.ai-cap{margin:6px 0 0;padding-inline-start:20px;line-height:1.9}
+.ai-hint{display:block;color:var(--mut);font-size:12px;line-height:1.7;margin-top:6px}
+.ai-form{display:flex;gap:8px}
+.ai-inp{flex:1}
+.ai-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ai-chip{border:1px dashed var(--bd);background:var(--card);color:var(--teal);border-radius:999px;padding:6px 14px;cursor:pointer;font-size:12.5px}
+.ai-chip:hover{border-color:var(--teal);background:var(--soft)}
+.ai-foot{display:flex;justify-content:flex-end}
+.ai-quota{color:var(--mut);font-size:11.5px}
+.ai-card{margin-top:8px;border:1px solid var(--bd);border-radius:12px;background:var(--card);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.ai-card.done{border-color:var(--grn)}
+.ai-card.off{opacity:.65}
+.ai-fields{border-collapse:collapse;width:100%}
+.ai-fields td{border:1px solid var(--bd);padding:6px 10px;font-size:13px}
+.ai-fields td:first-child{background:var(--soft);color:var(--mut);width:110px;font-weight:600}
+.ai-act{display:flex;gap:8px;margin-top:2px}
+.ai-done{color:var(--grn);font-weight:700;margin-top:4px}
+.ai-cancelled{color:var(--mut);margin-top:4px}
+.ai-draft-text{background:var(--soft);border:1px dashed var(--bd);border-radius:10px;padding:10px 12px;white-space:pre-wrap;line-height:1.9}
+.ai-open{margin-top:8px}
