@@ -415,6 +415,70 @@ async function supplierStatement(q) {
   const unapplied = r2(payPool); /* payments exceeding invoices (credit balance with supplier) */
   return { supplier: sup, from, to, opening: r2(Number(op.b)), moves, closing: run, aging: { cur: buckets.b0, d30: buckets.b30, d60: buckets.b60, d90: buckets.b90, unapplied } };
 }
+/* Delete a GL-linked document by REVERSING its posted entries (entries are never deleted). */
+const todayCairo = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+async function reverseEntries(conn, entryIds, u) {
+  const today = todayCairo(); await ACC.lockGuard(today);
+  for (const eid of entryIds.filter(Boolean)) {
+    const [e] = (await conn.query('SELECT * FROM gl_entries WHERE id=?', [eid]))[0];
+    if (!e || e.reversed_of) continue;
+    if ((await conn.query('SELECT id FROM gl_entries WHERE reversed_of=? LIMIT 1', [eid]))[0].length) continue;
+    const ls = (await conn.query('SELECT * FROM gl_lines WHERE entry_id=?', [eid]))[0];
+    await ACC.post(conn, today, 'عكس القيد رقم ' + e.no + ' (حذف مستند)', 'normal', ls.map(l => ({ account_id: l.account_id, debit: l.credit, credit: l.debit })), { reversed_of: eid, uid: u.id });
+  }
+}
+async function assetDelete(u, id) {
+  const [a] = await Q('SELECT * FROM fixed_assets WHERE id=?', [id]); if (!a) throw new HttpError(404, 'غير موجود');
+  return C.tx(async (conn) => {
+    const dep = (await conn.query('SELECT entry_id FROM asset_dep WHERE asset_id=?', [id]))[0].map(r => r.entry_id);
+    const [pe] = (await conn.query("SELECT id FROM gl_entries WHERE source='asset' AND source_id=?", [id]))[0];
+    await reverseEntries(conn, [pe && pe.id, ...dep], u);
+    await conn.query('DELETE FROM asset_dep WHERE asset_id=?', [id]);
+    await conn.query('DELETE FROM fixed_assets WHERE id=?', [id]);
+    await C.audit(u, 'delete', 'asset', id, a.name, conn);
+    return { ok: true };
+  });
+}
+async function prepaidDelete(u, id) {
+  const [a] = await Q('SELECT * FROM prepaids WHERE id=?', [id]); if (!a) throw new HttpError(404, 'غير موجود');
+  return C.tx(async (conn) => {
+    const am = (await conn.query('SELECT entry_id FROM prepaid_amort WHERE prepaid_id=?', [id]))[0].map(r => r.entry_id);
+    await reverseEntries(conn, [a.pay_entry_id, ...am], u);
+    await conn.query('DELETE FROM prepaid_amort WHERE prepaid_id=?', [id]);
+    await conn.query('DELETE FROM prepaids WHERE id=?', [id]);
+    await C.audit(u, 'delete', 'prepaid', id, a.name, conn);
+    return { ok: true };
+  });
+}
+async function accrualDelete(u, id) {
+  const [a] = await Q('SELECT * FROM accruals WHERE id=?', [id]); if (!a) throw new HttpError(404, 'غير موجود');
+  return C.tx(async (conn) => {
+    await reverseEntries(conn, [a.entry_id, a.settled_entry_id], u);
+    await conn.query('DELETE FROM accruals WHERE id=?', [id]);
+    await C.audit(u, 'delete', 'accrual', id, a.name, conn);
+    return { ok: true };
+  });
+}
+async function payAccrDelete(u, id) {
+  const [a] = await Q('SELECT * FROM payroll_accruals WHERE id=?', [id]); if (!a) throw new HttpError(404, 'غير موجود');
+  if (Number(a.paid_amount) > 0) throw bad('لا يمكن حذف استحقاق رواتب عليه سداد');
+  return C.tx(async (conn) => {
+    await reverseEntries(conn, [a.entry_id], u);
+    await conn.query('DELETE FROM payroll_accruals WHERE id=?', [id]);
+    await C.audit(u, 'delete', 'payroll_accrual', id, a.ym, conn);
+    return { ok: true };
+  });
+}
+async function vatDocDelete(u, id) {
+  const [a] = await Q('SELECT * FROM vat_docs WHERE id=?', [id]); if (!a) throw new HttpError(404, 'غير موجود');
+  return C.tx(async (conn) => {
+    await reverseEntries(conn, [a.entry_id], u);
+    await conn.query('DELETE FROM vat_docs WHERE id=?', [id]);
+    await C.audit(u, 'delete', 'vat_doc', id, a.party || a.kind, conn);
+    return { ok: true };
+  });
+}
+
 async function api(head, req, u, id, body, q, parts) {
   if (head !== 'gl2') return undefined; await ensure(); const sub = parts[1], m = req.method;
   const write = () => { if (u.role === 'viewer') throw new HttpError(403, 'صلاحيتك للعرض فقط'); };
@@ -426,7 +490,9 @@ async function api(head, req, u, id, body, q, parts) {
   if (sub === 'bankrecs' && m === 'GET') return Q('SELECT * FROM bank_recs ORDER BY statement_date DESC, id DESC LIMIT 50');
   if (sub === 'assets') {
     if (m === 'GET') return assetsList();
-    write(); if (m === 'POST') return assetCreate(u, body);
+    write();
+    if (m === 'POST') return assetCreate(u, body);
+    if (m === 'DELETE' && +parts[2]) return assetDelete(u, +parts[2]);
   }
   if (sub === 'depreciation') {
     if (m === 'GET') return depPreview(q.month || curMonth());
@@ -435,13 +501,17 @@ async function api(head, req, u, id, body, q, parts) {
   if (sub === 'depruns' && m === 'GET') return depRuns();
   if (sub === 'payroll-accrual') {
     if (m === 'GET') return payAccrGet(u, q);
-    write(); if (m === 'POST') return payAccrue(u, body);
+    write();
+    if (m === 'POST') return payAccrue(u, body);
+    if (m === 'DELETE' && +parts[2]) return payAccrDelete(u, +parts[2]);
   }
   if (sub === 'payroll-pay') { write(); if (m === 'POST') return payPay(u, body); }
   if (sub === 'payroll-accruals' && m === 'GET') return payAccruals();
   if (sub === 'prepaids') {
     if (m === 'GET') return prepaidsList();
-    write(); if (m === 'POST') return prepaidCreate(u, body);
+    write();
+    if (m === 'POST') return prepaidCreate(u, body);
+    if (m === 'DELETE' && +parts[2]) return prepaidDelete(u, +parts[2]);
   }
   if (sub === 'amortize') {
     if (m === 'GET') return amortPreview(q.month || curMonth());
@@ -450,12 +520,16 @@ async function api(head, req, u, id, body, q, parts) {
   if (sub === 'amorts' && m === 'GET') return amortRuns();
   if (sub === 'accruals') {
     if (m === 'GET') return accrualsList();
-    write(); if (m === 'POST') return accrualCreate(u, body);
+    write();
+    if (m === 'POST') return accrualCreate(u, body);
+    if (m === 'DELETE' && +parts[2]) return accrualDelete(u, +parts[2]);
   }
   if (sub === 'accrual-settle') { write(); if (m === 'POST') return accrualSettle(u, body); }
   if (sub === 'vat-docs') {
     if (m === 'GET') return vatDocsList(q);
-    write(); if (m === 'POST') return vatDocCreate(u, body);
+    write();
+    if (m === 'POST') return vatDocCreate(u, body);
+    if (m === 'DELETE' && +parts[2]) return vatDocDelete(u, +parts[2]);
   }
   if (sub === 'vat-report' && m === 'GET') return vatReport(q);
   if (sub === 'vat-settle') { write(); if (m === 'POST') return vatSettle(u, body); }
